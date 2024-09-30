@@ -1,0 +1,30 @@
+{
+  "scripts": {
+    "test": "ts-mocha -p ./tsconfig.json -t 1000000 ./tests/test.ts",
+    "build-and-test": "cargo build-sbf --manifest-path=./program/Cargo.toml --sbf-out-dir=./tests/fixtures && npm test",
+    "build": "cargo build-sbf --manifest-path=./program/Cargo.toml --sbf-out-dir=./program/target/so",
+    "deploy": "solana program deploy ./program/target/so/gideon.so --program-id ./program/target/so/gideon-keypair.json --max-sign-attempts 1000 --with-compute-unit-price 100000 "
+  },
+  "dependencies": {
+    "@solana/buffer-layout": "^4.0.1",
+    "@solana/spl-token": "^0.4.8",
+    "@solana/web3.js": "^1.47.3",
+    "axios": "^1.7.3",
+    "borsh": "^2.0.0",
+    "buffer": "^6.0.3",
+    "form-data": "^4.0.0",
+    "fs": "^0.0.1-security"
+  },
+  "devDependencies": {
+    "@metaplex-foundation/solita": "^0.20.1",
+    "@types/bn.js": "^5.1.0",
+    "@types/chai": "^4.3.1",
+    "@types/mocha": "^9.1.1",
+    "chai": "^4.3.4",
+    "mocha": "^9.0.3",
+    "prettier": "^3.3.3",
+    "solana-bankrun": "^0.3.0",
+    "ts-mocha": "^10.0.0",
+    "typescript": "^4.3.5"
+  }
+}
