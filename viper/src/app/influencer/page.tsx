@@ -264,7 +264,7 @@ export default function InfluencerDashboard() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
                 >
-                    <h1 className="text-4xl font-bold mb-2 text-primary">Welcome Influencer!</h1>
+                    <h1 className="text-4xl font-bold mb-2 text-primary">Welcome, Influencer!</h1>
                     <p className="text-xl text-muted-foreground">View and redeem your vouchers below.</p>
                 </motion.div>
 

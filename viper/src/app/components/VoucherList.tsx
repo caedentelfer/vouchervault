@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { Connection, PublicKey, Transaction } from '@solana/web3.js'
 import { createTransferInstruction, createAssociatedTokenAccountInstruction, getAssociatedTokenAddress, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
-import { ChevronDown, ChevronUp, Send, Copy, X, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react'
+import { ChevronDown, ChevronUp, Send, Copy, X, CheckCircle, AlertCircle, ExternalLink, Wallet } from 'lucide-react'
 import { useCountry } from '../contexts/CountryContext'
 
 interface VoucherData {
@@ -204,16 +204,45 @@ export default function Component(props: VoucherListProps = {
     }
 
     if (vouchers.length === 0) {
-        return (
-            <motion.div
-                className="text-center p-8 bg-card text-card-foreground rounded-lg shadow-md"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-            >
-                <p className="text-xl font-semibold">No vouchers in wallet</p>
-            </motion.div>
-        )
+        if (userType === 'payer') {
+            return (
+                <div className="w-full px-4 py-8">
+                    <motion.div
+                        className="text-center p-12 bg-card text-card-foreground shadow-md"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5 }}
+                    >
+                        <div className="max-w-4xl mx-auto flex flex-col items-center">
+                            <Wallet className="w-16 h-16 mb-6 text-blue-500" />
+                            <p className="text-xl font-semibold mb-4">No vouchers to transfer.</p>
+                            <p className="text-sm text-muted-foreground">
+                                Start by minting new vouchers.
+                            </p>
+                        </div>
+                    </motion.div>
+                </div>
+            )
+        } else {
+            return (
+                <div className="w-full px-4 py-8">
+                    <motion.div
+                        className="text-center p-12 bg-card text-card-foreground shadow-md"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5 }}
+                    >
+                        <div className="max-w-4xl mx-auto flex flex-col items-center">
+                            <Wallet className="w-16 h-16 mb-6 text-blue-500" />
+                            <p className="text-xl font-semibold mb-4">No vouchers in wallet.</p>
+                            <p className="text-sm text-muted-foreground">
+                                Need a voucher? Send an email to the desired manufacturer with your wallet address.
+                            </p>
+                        </div>
+                    </motion.div>
+                </div>
+            )
+        }
     }
 
     return (

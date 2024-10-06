@@ -10,7 +10,7 @@ import { getAssociatedTokenAddress, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROG
 import { VoucherData } from '../../utils/VoucherData'
 import { TokenUtils } from '../../utils/TokenUtils'
 import { createReleaseEscrowAndBurnVoucherInstruction } from '../../generated/instructions'
-import { CheckCircle, AlertCircle, QrCode, X, Camera, ShoppingBag, AlertTriangle, Gift, Loader2, RotateCcw, FileText, Wallet, AlertOctagon, RefreshCw } from 'lucide-react'
+import { CheckCircle, AlertCircle, QrCode, X, Camera, ShoppingBag, AlertTriangle, Gift, Loader2, RotateCcw, FileText, Wallet, AlertOctagon, RefreshCw, Flame } from 'lucide-react'
 import SuccessBanner from '../components/SuccessBanner'
 import { SYSVAR_CLOCK_PUBKEY } from '@solana/web3.js'
 import { useCountry } from '../contexts/CountryContext'
@@ -82,7 +82,7 @@ const WalletBalancePopup = ({ isOpen, onClose, balance, onRefresh }) => {
                         </p>
                     </div>
                     <p className="text-sm text-gray-600 mb-4 text-center">
-                        Your balance on the Solana.
+                        Your balance on the Solana network.
                     </p>
                     <button
                         onClick={onRefresh}
@@ -129,6 +129,7 @@ export default function IssuerDashboard() {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [walletBalance, setWalletBalance] = useState<number | null>(null);
     const [isBalancePopupOpen, setIsBalancePopupOpen] = useState(false);
+    const scannedRef = useRef(false);
 
     useEffect(() => {
         if (connected) {
@@ -161,7 +162,7 @@ export default function IssuerDashboard() {
         return () => {
             peer.destroy()
         }
-    }, [userWalletKey])
+    }, [])
 
     useEffect(() => {
         const fetchExchangeRate = async () => {
@@ -185,8 +186,9 @@ export default function IssuerDashboard() {
     }
 
     const handleScanVoucher = () => {
-        setQrDialogOpen(true)
-    }
+        scannedRef.current = false;
+        setQrDialogOpen(true);
+    };
 
     const handleBurn = async (voucherId: string, escrowAccount: string) => {
         if (!userWalletKey || !signTransaction) {
@@ -288,7 +290,9 @@ export default function IssuerDashboard() {
     };
 
     const handleQrScan = (data: any) => {
-        if (data) {
+        if (data && !scannedRef.current) {
+            scannedRef.current = true;
+
             let scannedData: string;
             if (typeof data === 'string') {
                 scannedData = data;
@@ -299,41 +303,46 @@ export default function IssuerDashboard() {
                 return;
             }
 
-            console.log('QR Data:', scannedData)
-            setQrData(scannedData)
-            setQrDialogOpen(false)
-            setTransferDialogOpen(true)
-            setTransferring(true)
+            console.log('QR Data:', scannedData);
+            setQrData(scannedData);
+            setQrDialogOpen(false);
+            setTransferDialogOpen(true);
+            setTransferring(true);
 
             try {
-                const [peerID, walletPublicKey, tokenMintAddress] = scannedData.split(',')
+                const [peerID, walletPublicKey, tokenMintAddress] = scannedData.split(',');
 
-                const tokenUtils = new TokenUtils()
-                tokenUtils.getTokenMetadata(tokenMintAddress).then(fetchedVoucherData => {
-                    setVoucherData(fetchedVoucherData)
+                const tokenUtils = new TokenUtils();
+                tokenUtils.getTokenMetadata(tokenMintAddress).then((fetchedVoucherData) => {
+                    setVoucherData(fetchedVoucherData);
 
                     if (peerID) {
-                        const peerConnection = peerRef.current?.connect(peerID)
+                        const peerConnection = peerRef.current?.connect(peerID);
                         if (peerConnection) {
-                            setConn(peerConnection)
+                            setConn(peerConnection);
                             peerConnection.on('open', async () => {
-                                console.log('Connected to Influencer:', peerID)
-                                peerConnection.send(userWalletKey?.toBase58() + ',' + tokenMintAddress)
+                                console.log('Connected to Influencer:', peerID);
+                                peerConnection.send(userWalletKey?.toBase58() + ',' + tokenMintAddress);
 
-                                await checkTransferStatus(tokenMintAddress)
-                                console.log('Transfer status checked.')
+                                await checkTransferStatus(tokenMintAddress);
+                                console.log('Transfer status checked.');
 
-                                peerConnection.close()
-                            })
+                                if (transferSuccess) {
+                                    peerConnection.send('Transfer valid');
+                                } else {
+                                    peerConnection.send('Transfer invalid');
+                                }
+                                peerConnection.close();
+                            });
                         }
                     }
-                })
+                });
             } catch (error) {
-                console.error('Failed to parse QR data:', error)
-                setTransferSuccess(false)
+                console.error('Failed to parse QR data:', error);
+                setTransferSuccess(false);
             }
         }
-    }
+    };
 
     const checkTransferStatus = async (tokenMintAddress: string) => {
         const startTime = Date.now()
@@ -421,13 +430,22 @@ export default function IssuerDashboard() {
         }
     };
 
-    const handleViewBalance = async () => {
-        await fetchWalletBalance();
+    useEffect(() => {
+        fetchWalletBalance();
+        const intervalId = setInterval(fetchWalletBalance, 2000);
+        return () => clearInterval(intervalId);
+    }, [userWalletKey, connection]);
+
+    const handleViewBalance = () => {
         setIsBalancePopupOpen(true);
     };
 
+    const handleRefreshBalance = () => {
+        fetchWalletBalance();
+    };
+
     return (
-        <div className="min-h-screen bg-gray-100">
+        <div className="min-h-screen bg-gradient-to-b from-background to-secondary/10">
             <main className="container mx-auto px-4 py-12">
                 <motion.div
                     className="text-center mb-12"
@@ -435,8 +453,8 @@ export default function IssuerDashboard() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
                 >
-                    <h1 className="text-4xl font-bold mb-2 text-blue-600">Hello Issuer!</h1>
-                    <p className="text-xl text-gray-600">Verify and burn vouchers redeemed at your store</p>
+                    <h1 className="text-4xl font-bold mb-2 text-primary">Welcome, Issuer!</h1>
+                    <p className="text-xl text-muted-foreground">Verify vouchers and claim funds to your account</p>
                 </motion.div>
 
                 <AnimatePresence mode="wait">
@@ -447,11 +465,11 @@ export default function IssuerDashboard() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -20 }}
                             transition={{ duration: 0.5 }}
-                            className="bg-white p-8 rounded-lg shadow-lg text-center"
+                            className="bg-card text-card-foreground p-8 rounded-lg shadow-lg text-center"
                         >
-                            <Gift size={48} className="mx-auto mb-4 text-blue-500" />
-                            <p className="text-xl mb-4 text-gray-800">Please connect your wallet to access the issuer dashboard.</p>
-                            <p className="text-gray-600">Once connected, you'll be able to verify and burn vouchers.</p>
+                            <Gift size={48} className="mx-auto mb-4 text-primary" />
+                            <p className="text-xl mb-4">Please connect your wallet to access the issuer dashboard.</p>
+                            <p className="text-muted-foreground">Once connected, you'll be able to verify and burn vouchers.</p>
                         </motion.div>
                     ) : loading ? (
                         <motion.div
@@ -462,109 +480,116 @@ export default function IssuerDashboard() {
                             transition={{ duration: 0.5 }}
                             className="text-center"
                         >
-                            <Loader2 size={48} className="animate-spin mx-auto mb-4 text-blue-500" />
-                            <p className="text-xl mb-4 text-gray-800">Loading issuer dashboard...</p>
-                            <p className="text-gray-600">Please wait while we set up your dashboard.</p>
+                            <Loader2 size={48} className="animate-spin mx-auto mb-4 text-primary" />
+                            <p className="text-xl mb-4">Loading issuer dashboard...</p>
+                            <p className="text-muted-foreground">Please wait while we set up your dashboard.</p>
                         </motion.div>
                     ) : (
-                        <>
-                            <div className="grid md:grid-cols-2 gap-8 mb-12">
-                                <motion.div
-                                    className="bg-white rounded-lg shadow-lg p-6"
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.5, delay: 0.2 }}
-                                >
-                                    <h2 className="text-2xl font-semibold mb-6 text-blue-600 text-center">Scan Voucher</h2>
-                                    <p className="text-gray-600 mb-4 text-center">Quickly verify and process customer vouchers.</p>
+                        <motion.div
+                            key="dashboard-content"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            transition={{ duration: 0.5 }}
+                        >
+                            <div className="grid md:grid-cols-4 gap-8 mb-8">
+                                <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 md:col-span-3">
+                                    <h2 className="text-2xl font-semibold mb-4 text-primary">Scan Voucher</h2>
+                                    <p className="text-muted-foreground mb-6">
+                                        Use this feature to scan and verify vouchers presented by customers. Ensure the QR code is clearly visible and within the scanner frame.
+                                    </p>
                                     <button
                                         onClick={handleScanVoucher}
-                                        className="w-full bg-blue-500 text-white hover:bg-blue-600 py-3 px-4 rounded-lg flex items-center justify-center text-lg font-semibold transition-colors duration-200"
+                                        className="w-full bg-primary text-primary-foreground hover:bg-primary/90 py-3 px-4 rounded-lg flex items-center justify-center text-lg font-semibold transition-colors duration-200"
                                     >
                                         <QrCode className="mr-2 h-6 w-6" /> Scan Now
                                     </button>
-                                </motion.div>
-                                <motion.div
-                                    className="bg-white rounded-lg shadow-lg p-6"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ duration: 0.5, delay: 0.4 }}
-                                >
-                                    <h2 className="text-2xl font-semibold mb-6 text-blue-600">Quick Guide</h2>
-                                    <div className="space-y-4">
-                                        <div className="flex items-center">
-                                            <Camera className="h-8 w-8 text-blue-500 mr-4" />
-                                            <p className="text-gray-600">Click "Scan Now" and hold the voucher QR code up to the camera.</p>
-                                        </div>
-                                        <div className="flex items-center">
-                                            <ShoppingBag className="h-8 w-8 text-green-500 mr-4" />
-                                            <p className="text-gray-600">For valid vouchers, proceed with the customer's transaction.</p>
-                                        </div>
-                                        <div className="flex items-center">
-                                            <AlertTriangle className="h-8 w-8 text-yellow-500 mr-4" />
-                                            <p className="text-gray-600">If a voucher is invalid, kindly inform the customer.</p>
-                                        </div>
+                                </div>
+
+                                <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold text-primary">Wallet Balance</h3>
+                                        <Wallet className="h-6 w-6 text-primary" />
                                     </div>
-                                </motion.div>
+                                    <AnimatePresence mode="wait">
+                                        <motion.p
+                                            key={walletBalance}
+                                            initial={{ opacity: 0, y: -10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: 10 }}
+                                            transition={{ duration: 0.3 }}
+                                            className="text-2xl font-bold text-green-500 mb-2"
+                                        >
+                                            {walletBalance !== null
+                                                ? `${currencySymbol}${convertSolToLocalCurrency(walletBalance)}`
+                                                : 'Loading...'}
+                                        </motion.p>
+                                    </AnimatePresence>
+                                    <p className="text-sm text-muted-foreground">
+                                        {walletBalance !== null ? `${walletBalance.toFixed(4)} SOL` : ''}
+                                    </p>
+                                </div>
                             </div>
 
-                            <div className="grid md:grid-cols-3 gap-8">
-                                <motion.div
-                                    className="bg-white rounded-lg shadow-lg p-6"
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.5, delay: 0.6 }}
-                                >
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-lg font-semibold text-blue-600">Wallet Balance</h3>
-                                        <Wallet className="h-6 w-6 text-blue-500" />
+                            <div className="grid md:grid-cols-4 gap-8">
+                                <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 md:col-span-3">
+                                    <h2 className="text-2xl font-semibold mb-6 text-primary">Quick Guide</h2>
+                                    <div className="space-y-6">
+                                        <div className="flex items-start space-x-4">
+                                            <Camera className="h-8 w-8 text-primary mt-1 flex-shrink-0" />
+                                            <div>
+                                                <h4 className="font-semibold mb-1">Scan the Voucher</h4>
+                                                <p className="text-muted-foreground">Click "Scan Now" and position the voucher's QR code within the camera frame. Ensure good lighting for best results.</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start space-x-4">
+                                            <ShoppingBag className="h-8 w-8 text-green-500 mt-1 flex-shrink-0" />
+                                            <div>
+                                                <h4 className="font-semibold mb-1">Process Valid Vouchers</h4>
+                                                <p className="text-muted-foreground">For valid vouchers, proceed with the customer's transaction. Confirm the voucher details before finalizing.</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start space-x-4">
+                                            <AlertTriangle className="h-8 w-8 text-yellow-500 mt-1 flex-shrink-0" />
+                                            <div>
+                                                <h4 className="font-semibold mb-1">Handle Invalid Vouchers</h4>
+                                                <p className="text-muted-foreground">If a voucher is invalid, politely inform the customer. Explain the reason if possible and suggest alternative options.</p>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <p className="text-sm text-gray-600 mb-4">Check your current wallet balance.</p>
-                                    <button
-                                        onClick={handleViewBalance}
-                                        className="w-full bg-gray-200 text-gray-800 hover:bg-gray-300 py-2 px-4 rounded-lg text-sm font-semibold transition-colors duration-200"
-                                    >
-                                        View Balance
-                                    </button>
-                                </motion.div>
-                                <motion.div
-                                    className="bg-white rounded-lg shadow-lg p-6"
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.5, delay: 0.7 }}
-                                >
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-lg font-semibold text-blue-600">Transaction History</h3>
-                                        <FileText className="h-6 w-6 text-green-500" />
+                                </div>
+
+                                <div className="space-y-8">
+                                    <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 flex flex-col h-[calc(50%-1rem)]">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-lg font-semibold text-primary">Transaction History</h3>
+                                            <FileText className="h-6 w-6 text-green-500" />
+                                        </div>
+                                        <p className="text-sm text-muted-foreground mb-4 flex-grow">View your recent voucher redemption history.</p>
+                                        <button
+                                            onClick={() => setIsTransactionHistoryOpen(true)}
+                                            className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90 py-2 px-4 rounded-lg text-sm font-semibold transition-colors duration-200 mt-auto"
+                                        >
+                                            View History
+                                        </button>
                                     </div>
-                                    <p className="text-sm text-gray-600 mb-4">View your recent voucher redemption history.</p>
-                                    <button
-                                        onClick={() => setIsTransactionHistoryOpen(true)}
-                                        className="w-full bg-gray-200 text-gray-800 hover:bg-gray-300 py-2 px-4 rounded-lg text-sm font-semibold transition-colors duration-200"
-                                    >
-                                        View History
-                                    </button>
-                                </motion.div>
-                                <motion.div
-                                    className="bg-white rounded-lg shadow-lg p-6"
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.5, delay: 0.8 }}
-                                >
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-lg font-semibold text-blue-600">Log an Issue</h3>
-                                        <AlertOctagon className="h-6 w-6 text-red-500" />
+
+                                    <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 flex flex-col h-[calc(50%-1rem)]">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-lg font-semibold text-primary">Log an Issue</h3>
+                                            <AlertOctagon className="h-6 w-6 text-destructive" />
+                                        </div>
+                                        <p className="text-sm text-muted-foreground mb-4 flex-grow">Report problems or request support.</p>
+                                        <button
+                                            onClick={() => setIsIssueModalOpen(true)}
+                                            className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90 py-2 px-4 rounded-lg text-sm font-semibold transition-colors duration-200 mt-auto"
+                                        >
+                                            Log an Issue
+                                        </button>
                                     </div>
-                                    <p className="text-sm text-gray-600 mb-4">Report any problems or request support.</p>
-                                    <button
-                                        onClick={() => setIsIssueModalOpen(true)}
-                                        className="w-full bg-red-500 text-white hover:bg-red-600 py-2 px-4 rounded-lg text-sm font-semibold transition-colors duration-200"
-                                    >
-                                        Log an Issue
-                                    </button>
-                                </motion.div>
+                                </div>
                             </div>
-                        </>
+                        </motion.div>
                     )}
                 </AnimatePresence>
 
@@ -581,25 +606,25 @@ export default function IssuerDashboard() {
                                 initial={{ scale: 0.9, y: 20 }}
                                 animate={{ scale: 1, y: 0 }}
                                 exit={{ scale: 0.9, y: 20 }}
-                                className="bg-white p-6 rounded-lg max-w-md w-full shadow-xl"
+                                className="bg-card text-card-foreground p-6 rounded-lg max-w-md w-full shadow-xl"
                             >
                                 <div className="flex flex-col items-center mb-6">
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-2">QR Scanner</h2>
+                                    <h2 className="text-2xl font-bold text-primary mb-2">QR Scanner</h2>
                                     {isMobile && (
                                         <button
                                             onClick={toggleCamera}
-                                            className="bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors duration-200 flex items-center"
+                                            className="bg-secondary text-secondary-foreground py-2 px-4 rounded-lg hover:bg-secondary/90 transition-colors duration-200 flex items-center"
                                         >
                                             <RotateCcw className="mr-2 h-4 w-4" /> Rotate Camera
                                         </button>
                                     )}
                                 </div>
-                                <div className="bg-gray-100 p-4 rounded-lg mb-6 relative">
+                                <div className="bg-secondary p-4 rounded-lg mb-6 relative">
                                     <div className="absolute inset-0 pointer-events-none">
-                                        <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500"></div>
-                                        <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500"></div>
-                                        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500"></div>
-                                        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500"></div>
+                                        <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary"></div>
+                                        <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary"></div>
+                                        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary"></div>
+                                        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary"></div>
                                     </div>
                                     <QrScanner
                                         key={facingMode}
@@ -610,10 +635,10 @@ export default function IssuerDashboard() {
                                         facingMode={facingMode}
                                     />
                                 </div>
-                                <p className="text-sm text-gray-600 text-center mb-6">Position the QR code within the frame to scan</p>
+                                <p className="text-sm text-muted-foreground text-center mb-6">Position the QR code within the frame to scan</p>
                                 <button
                                     onClick={() => setQrDialogOpen(false)}
-                                    className="w-full bg-blue-500 text-white hover:bg-blue-600 py-3 px-4 rounded-lg text-lg font-semibold transition-colors duration-200"
+                                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 py-3 px-4 rounded-lg text-lg font-semibold transition-colors duration-200"
                                 >
                                     Close Scanner
                                 </button>
@@ -621,8 +646,9 @@ export default function IssuerDashboard() {
                         </motion.div>
                     )}
 
-                    {isIssueModalOpen && (
+                    {transferDialogOpen && (
                         <motion.div
+                            key="transfer-dialog"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
@@ -632,51 +658,198 @@ export default function IssuerDashboard() {
                                 initial={{ scale: 0.9, y: 20 }}
                                 animate={{ scale: 1, y: 0 }}
                                 exit={{ scale: 0.9, y: 20 }}
-                                className="bg-white p-6 rounded-lg max-w-md w-full shadow-xl"
+                                className="bg-card text-card-foreground p-6 rounded-lg max-w-md w-full shadow-xl"
                             >
-                                <h2 className="text-2xl font-bold mb-4 text-blue-600">Log an Issue</h2>
+                                <div className="text-center">
+                                    <h2 className="text-2xl font-bold text-primary mb-4">Voucher Verification</h2>
+                                    {transferring ? (
+                                        <div>
+                                            <Loader2 className="animate-spin h-12 w-12 mx-auto mb-4 text-primary" />
+                                            <p className="text-lg mb-2">Processing Transfer</p>
+                                            <p className="text-muted-foreground">Please wait while we verify the voucher...</p>
+                                        </div>
+                                    ) : transferSuccess === null ? (
+                                        <p className="text-lg mb-4">Initiating transfer...</p>
+                                    ) : transferSuccess ? (
+                                        <div>
+                                            <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                                            <p className="text-lg mb-2 text-green-500 font-semibold">Transfer Successful!</p>
+                                            <p className="text-muted-foreground mb-4">The voucher has been successfully transferred.</p>
+                                            {voucherData && (
+                                                <div className="bg-secondary p-4 rounded-lg mb-4">
+                                                    <img src={voucherData.uri} alt="Voucher" className="w-full h-40 object-cover rounded-lg mb-4" />
+                                                    <h3 className="font-semibold mb-2">Voucher Details:</h3>
+                                                    <p className="text-3xl font-bold text-green-500 mb-2">
+                                                        {currencySymbol}{convertSolToLocalCurrency(Number(voucherData.escrow))}
+                                                    </p>
+                                                    <p>Value: {voucherData.escrow} SOL</p>
+                                                    <p>Expiry: {new Date(voucherData.expiry).toLocaleDateString()}</p>
+                                                </div>
+                                            )}
+                                            <button
+                                                onClick={() => handleBurn(voucherData.mintAddress, voucherData.escrowAddress)}
+                                                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 py-2 px-4 rounded-lg text-lg font-semibold transition-colors duration-200 flex items-center justify-center"
+                                                disabled={burning}
+                                            >
+                                                {burning ? (
+                                                    <>
+                                                        <Loader2 className="animate-spin mr-2 h-5 w-5" />
+                                                        Burning...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Flame className="mr-2 h-5 w-5" />
+                                                        Burn Voucher
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
+                                            <p className="text-lg mb-2 text-destructive font-semibold">Transfer Failed</p>
+                                            <p className="text-muted-foreground mb-4">The voucher transfer could not be completed. Please try again.</p>
+                                            <button
+                                                onClick={() => setTransferDialogOpen(false)}
+                                                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 py-2 px-4 rounded-lg text-lg font-semibold transition-colors duration-200"
+                                            >
+                                                Close
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+
+                    {burnSuccessDialogOpen && (
+                        <motion.div
+                            key="burn-success-dialog"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                        >
+                            <motion.div
+                                initial={{ scale: 0.9, y: 20 }}
+                                animate={{ scale: 1, y: 0 }}
+                                exit={{ scale: 0.9, y: 20 }}
+                                className="bg-card text-card-foreground p-6 rounded-lg max-w-md w-full shadow-xl"
+                            >
+                                <div className="text-center">
+                                    <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                                    <h2 className="text-2xl font-bold text-primary mb-2">Voucher Burned Successfully</h2>
+                                    <p className="text-muted-foreground mb-4">The voucher has been burned and the funds have been released.</p>
+                                    <button
+                                        onClick={() => {
+                                            setBurnSuccessDialogOpen(false);
+                                            setTransferDialogOpen(false);
+                                        }}
+                                        className="w-full bg-primary text-primary-foreground hover:bg-primary/90 py-2 px-4 rounded-lg text-lg font-semibold transition-colors duration-200"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+
+                    {burnFailureDialogOpen && (
+                        <motion.div
+                            key="burn-failure-dialog"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                        >
+                            <motion.div
+                                initial={{ scale: 0.9, y: 20 }}
+                                animate={{ scale: 1, y: 0 }}
+                                exit={{ scale: 0.9, y: 20 }}
+                                className="bg-card text-card-foreground p-6 rounded-lg max-w-md w-full shadow-xl"
+                            >
+                                <div className="text-center">
+                                    <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
+                                    <h2 className="text-2xl font-bold text-primary mb-2">Voucher Burn Failed</h2>
+                                    <p className="text-muted-foreground mb-4">There was an error while attempting to burn the voucher. Please try again or contact support if the issue persists.</p>
+                                    <button
+                                        onClick={() => {
+                                            setBurnFailureDialogOpen(false);
+                                            setTransferDialogOpen(false);
+                                        }}
+                                        className="w-full bg-primary text-primary-foreground hover:bg-primary/90 py-2 px-4 rounded-lg text-lg font-semibold transition-colors duration-200"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+
+                    {isTransactionHistoryOpen && (
+                        <TransactionHistoryPopup
+                            isOpen={isTransactionHistoryOpen}
+                            onClose={() => setIsTransactionHistoryOpen(false)}
+                        />
+                    )}
+
+                    {isIssueModalOpen && (
+                        <motion.div
+                            key="issue-modal"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                        >
+                            <motion.div
+                                initial={{ scale: 0.9, y: 20 }}
+                                animate={{ scale: 1, y: 0 }}
+                                exit={{ scale: 0.9, y: 20 }}
+                                className="bg-card text-card-foreground p-6 rounded-lg max-w-md w-full shadow-xl"
+                            >
+                                <h2 className="text-2xl font-bold text-primary mb-4">Log an Issue</h2>
                                 <form onSubmit={handleLogIssue}>
                                     <div className="mb-4">
-                                        <label htmlFor="issueTitle" className="block text-sm font-medium text-gray-700 mb-1">
-                                            Title
+                                        <label htmlFor="issueTitle" className="block text-sm font-medium text-muted-foreground mb-1">
+                                            Issue Title
                                         </label>
                                         <input
                                             type="text"
                                             id="issueTitle"
                                             value={issueTitle}
                                             onChange={(e) => setIssueTitle(e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            className="w-full px-3 py-2 border border-input bg-background rounded-md"
                                             required
                                         />
                                     </div>
                                     <div className="mb-4">
-                                        <label htmlFor="issueMessage" className="block text-sm font-medium text-gray-700 mb-1">
-                                            Message
+                                        <label htmlFor="issueMessage" className="block text-sm font-medium text-muted-foreground mb-1">
+                                            Issue Description
                                         </label>
                                         <textarea
                                             id="issueMessage"
                                             value={issueMessage}
                                             onChange={(e) => setIssueMessage(e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            className="w-full px-3 py-2 border border-input bg-background rounded-md"
                                             rows={4}
                                             required
                                         ></textarea>
                                     </div>
                                     {errorMessage && (
-                                        <div className="mb-4 text-red-500 text-sm">{errorMessage}</div>
+                                        <p className="text-destructive mb-4">{errorMessage}</p>
                                     )}
-                                    <div className="flex justify-end space-x-2">
+                                    <div className="flex justify-end space-x-4">
                                         <button
                                             type="button"
                                             onClick={() => setIsIssueModalOpen(false)}
-                                            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            className="px-4 py-2 border border-input bg-background rounded-md text-muted-foreground hover:bg-secondary transition-colors duration-200"
                                         >
                                             Cancel
                                         </button>
                                         <button
                                             type="submit"
+                                            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors duration-200"
                                             disabled={isSubmitting}
-                                            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
                                         >
                                             {isSubmitting ? 'Submitting...' : 'Submit'}
                                         </button>
@@ -686,19 +859,18 @@ export default function IssuerDashboard() {
                         </motion.div>
                     )}
 
-                    <TransactionHistoryPopup
-                        isOpen={isTransactionHistoryOpen}
-                        onClose={() => setIsTransactionHistoryOpen(false)}
-                    />
-
-                    <WalletBalancePopup
-                        isOpen={isBalancePopupOpen}
-                        onClose={() => setIsBalancePopupOpen(false)}
-                        balance={walletBalance} onRefresh={undefined} />
+                    {isBalancePopupOpen && (
+                        <WalletBalancePopup
+                            isOpen={isBalancePopupOpen}
+                            onClose={() => setIsBalancePopupOpen(false)}
+                            balance={walletBalance}
+                            onRefresh={handleRefreshBalance}
+                        />
+                    )}
                 </AnimatePresence>
 
                 {showSuccessBanner && (
-                    <SuccessBanner message={successMessage} />
+                    <SuccessBanner key="success-banner" message={successMessage} />
                 )}
             </main>
         </div>
