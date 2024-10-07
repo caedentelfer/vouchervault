@@ -7,7 +7,7 @@ import { VoucherData } from '../../utils/VoucherData'
 import { TokenUtils } from '../../utils/TokenUtils'
 import VoucherList from '../components/VoucherList'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
-import { Gift, Loader2 } from 'lucide-react'
+import { AlertCircle, Gift, Loader2 } from 'lucide-react'
 import Peer from 'peerjs'
 import {
     createTransferInstruction,
@@ -32,12 +32,12 @@ export default function InfluencerDashboard() {
     const [selectedVoucher, setSelectedVoucher] = useState<VoucherData | null>(null)
     const { publicKey, signTransaction, connected } = useWallet()
     const { connection } = useConnection()
-
     const [peer, setPeer] = useState<Peer | null>(null)
     const [peerId, setPeerId] = useState<string | null>(null)
     const [qrCodeData, setQrCodeData] = useState<string | null>(null)
     const [showSuccessBanner, setShowSuccessBanner] = useState<boolean>(false)
     const [successMessage, setSuccessMessage] = useState<string>('')
+    const [showErrorPopup, setShowErrorPopup] = useState(false)
 
     useEffect(() => {
         if (connected && publicKey) {
@@ -55,7 +55,7 @@ export default function InfluencerDashboard() {
         })
 
         peer.on('connection', (conn) => {
-            conn.on('data', (data) => {
+            conn.on('data', async (data) => {
                 console.log('Message received:', data)
 
                 if (data === 'Transfer valid') {
@@ -63,16 +63,33 @@ export default function InfluencerDashboard() {
                     handleCloseDialog()
                     setLoading(true)
                     fetchVouchers()
-                    setTimeout(() => setSuccessMessage('Voucher redeemed successfully'), 2000)
-                    setShowSuccessBanner(true)
-                    setTimeout(() => setShowSuccessBanner(false), 3000)
+                    displaySuccessMessage('Voucher redeemed successfully')
+                } else if (data == 'Transfer invalid') {
+                    console.log('invalid transfer -> show error')
+                    setShowErrorPopup(true)
+                    setOpenDialog(false)
+                    return () => {
+                        peer.disconnect()
+                        peer.destroy()
+                    }
                 } else {
-
-                    const [targetWalletAddress, selectedVoucher] = (data as string).split(',')
-                    console.log('Target wallet address:', targetWalletAddress)
+                    const [thisWalletAddress, selectedVoucher, escrowAddress] = (data as string).split(',')
+                    console.log('Target wallet address:', thisWalletAddress)
                     console.log('Selected voucher:', selectedVoucher)
 
-                    transferToken(targetWalletAddress, selectedVoucher)
+                    const tokenUtilsInstance = new TokenUtils()
+                    const targetAddress = tokenUtilsInstance.getRecipientFromEscrow(escrowAddress)
+
+                    console.log('Target address:', targetAddress)
+                    console.log('Attempting to redeem at address:', thisWalletAddress)
+
+                    if (thisWalletAddress !== await targetAddress) {
+                        console.error('Invalid target company')
+                        setShowErrorPopup(true)
+                        return
+                    } else {
+                        transferToken(thisWalletAddress, selectedVoucher)
+                    }
                 }
             })
         })
@@ -90,11 +107,6 @@ export default function InfluencerDashboard() {
             const tokenUtils = new TokenUtils()
             const voucherData = await tokenUtils.populateVoucherArray(publicKey.toBase58())
             setVouchers(voucherData)
-            if (voucherData.length > vouchers.length) {
-                //setSuccessMessage('Received new voucher')
-                //setShowSuccessBanner(true)
-                //setTimeout(() => setShowSuccessBanner(false), 3000)
-            }
         } catch (err) {
             setError('Failed to fetch voucher data')
             console.error('Error fetching voucher data:', err)
@@ -107,6 +119,9 @@ export default function InfluencerDashboard() {
         setSelectedVoucher(voucher)
         const userWalletKey = publicKey?.toBase58()
         const tokenMintAddress = voucher.mintAddress
+        const tokenUtilsInstance = new TokenUtils()
+        const targetAddress = tokenUtilsInstance.getRecipientFromEscrow(voucher.escrowAddress)
+        console.log('*******************************\n--> Target wallet address: ', targetAddress)
 
         if (peerId && userWalletKey) {
             const qrCodeData = `${peerId},${userWalletKey},${tokenMintAddress}`
@@ -122,15 +137,19 @@ export default function InfluencerDashboard() {
         setSelectedVoucher(null)
     }
 
+    const displaySuccessMessage = (message: string) => {
+        setSuccessMessage(message)
+        setShowSuccessBanner(true)
+        setTimeout(() => setShowSuccessBanner(false), 3000)
+    }
+
     const handleVoucherTransferred = (mintAddress: string) => {
         setVouchers(prevVouchers => prevVouchers.filter(v => v.mintAddress !== mintAddress))
         console.log('valid transfer -> refresh')
         handleCloseDialog()
         setLoading(true)
         fetchVouchers()
-        setTimeout(() => setSuccessMessage('Voucher redeemed successfully'), 2000)
-        setShowSuccessBanner(true)
-        setTimeout(() => setShowSuccessBanner(false), 3000)
+        displaySuccessMessage('Voucher redeemed successfully')
     }
 
     const transferToken = (targetWalletAddress: string, selectedVoucher: string) => {
@@ -255,6 +274,10 @@ export default function InfluencerDashboard() {
         }
     }
 
+    const handleCloseErrorPopup = () => {
+        setShowErrorPopup(false)
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-b from-background to-secondary/10">
             <main className="container mx-auto px-4 py-12">
@@ -356,6 +379,36 @@ export default function InfluencerDashboard() {
                         </motion.div>
                     )}
 
+                    {showErrorPopup && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                        >
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.9, opacity: 0 }}
+                                className="bg-background p-8 rounded-lg shadow-xl max-w-md w-full"
+                            >
+                                <div className="flex items-center justify-center mb-4">
+                                    <AlertCircle className="text-destructive w-12 h-12" />
+                                </div>
+                                <h2 className="text-2xl font-bold mb-2 text-center text-destructive">Invalid Voucher</h2>
+                                <p className="text-center mb-6 text-muted-foreground">
+                                    This voucher cannot be redeemed at this store.
+                                </p>
+                                <button
+                                    onClick={handleCloseErrorPopup}
+                                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-lg text-lg font-semibold transition-colors duration-200"
+                                >
+                                    Close
+                                </button>
+                            </motion.div>
+                        </motion.div>
+                    )}
+
                     {showSuccessBanner && (
                         <SuccessBanner message={successMessage} />
                     )}
@@ -364,3 +417,4 @@ export default function InfluencerDashboard() {
         </div>
     )
 }
+

@@ -10,7 +10,7 @@ import { createInitEscrowAndMintVoucherInstruction, InitEscrowAndMintVoucherInst
 import { InitEscrowArgs } from '../../generated/types/InitEscrowArgs'
 import { MintVoucherArgs } from '../../generated/types/MintVoucherArgs'
 import { pinFileToIPFS, pinJSONToIPFS } from '../../utils/uri'
-import { CreditCard, Send, History, X, Upload, CheckCircle, AlertCircle, Coins, UserCheck, Clock, Loader2, Gift, ChevronUp } from 'lucide-react'
+import { CreditCard, Send, History, X, Upload, CheckCircle, AlertCircle, Coins, UserCheck, Clock, Loader2, Gift, ChevronUp, ChevronDown } from 'lucide-react'
 import { TokenUtils } from '../../utils/TokenUtils'
 import { VoucherData } from '../../utils/VoucherData'
 import VoucherList from '../components/VoucherList'
@@ -50,6 +50,7 @@ export default function ManufacturerDashboard() {
     const [showSuccessBanner, setShowSuccessBanner] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const { country, exchangeRate } = useCountry()
+    const [isImageUploading, setIsImageUploading] = useState(false)
 
     useEffect(() => {
         if (connected && publicKey) {
@@ -75,8 +76,18 @@ export default function ManufacturerDashboard() {
 
     const handleCompanyChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
         const company = companyOptions.find(c => c.name === event.target.value)
-        setSelectedCompany(company.name)
-        setTargetCompany(company.address)
+        if (company) {
+            setSelectedCompany(company.name)
+        } else {
+            setErrorMessage("Selected company not found")
+            setShowErrorPopup(true)
+        }
+        if (company) {
+            setTargetCompany(company.address)
+        } else {
+            setErrorMessage("Selected company not found")
+            setShowErrorPopup(true)
+        }
     }
 
     const handleRefresh = () => {
@@ -182,6 +193,7 @@ export default function ManufacturerDashboard() {
         if (event.target.files && event.target.files[0]) {
             const file = event.target.files[0]
             setVoucherImage(file)
+            setIsImageUploading(true)
 
             try {
                 const ipfsHash = await pinFileToIPFS(file, "VoucherImage")
@@ -191,6 +203,8 @@ export default function ManufacturerDashboard() {
                 console.error("Error uploading to IPFS:", error)
                 setErrorMessage("Failed to upload image to IPFS")
                 setShowErrorPopup(true)
+            } finally {
+                setIsImageUploading(false)
             }
         }
     }
@@ -292,6 +306,9 @@ export default function ManufacturerDashboard() {
                 tokenProgram: splToken.TOKEN_2022_PROGRAM_ID,
                 associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
             } as InitEscrowAndMintVoucherInstructionAccounts
+            if (!expirationDate) {
+                throw new Error("Expiration date is required");
+            }
             const expiry = BigInt(Math.floor(expirationDate.getTime()))
 
             let metadataURI = ''
@@ -485,8 +502,10 @@ export default function ManufacturerDashboard() {
                                             {section === 'transfer' && 'Distribute vouchers to your network of influencers.'}
                                             {section === 'history' && 'View and manage your past voucher transactions.'}
                                         </p>
-                                        {activeSection === section && (
-                                            <ChevronUp className="w-6 h-6 mt-4" />
+                                        {activeSection === section ? (
+                                            <ChevronDown className="w-6 h-6 mt-4" />
+                                        ) : (
+                                            <ChevronDown className="w-6 h-6 mt-4 opacity-0" />
                                         )}
                                     </motion.button>
                                 ))}
@@ -506,7 +525,7 @@ export default function ManufacturerDashboard() {
                                         {activeSection === 'mint' && (
                                             <>
                                                 <h2 className="text-2xl font-semibold mb-4 text-primary text-center">Mint New Voucher</h2>
-                                                <div className="max-w-2xl mx-auto border border-input rounded-lg p-6">
+                                                <div className="max-w-2xl mx-auto border-2 border-blue-500 rounded-lg p-6">
                                                     <form className="space-y-4">
                                                         <div>
                                                             <label htmlFor="itemName" className="block text-sm font-medium text-foreground mb-1">
@@ -628,10 +647,14 @@ export default function ManufacturerDashboard() {
                                                                 htmlFor="image-upload"
                                                                 className="cursor-pointer bg-primary text-primary-foreground py-2 px-4 rounded-md hover:bg-primary/90 transition duration-300 flex items-center"
                                                             >
-                                                                <Upload className="w-5 h-5 mr-2" />
-                                                                Upload Image
+                                                                {isImageUploading ? (
+                                                                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                                                ) : (
+                                                                    <Upload className="w-5 h-5 mr-2" />
+                                                                )}
+                                                                {isImageUploading ? 'Uploading...' : 'Upload Image'}
                                                             </label>
-                                                            {voucherImage && (
+                                                            {voucherImage && !isImageUploading && (
                                                                 <div className="mt-4 text-center">
                                                                     <p>Selected Image: {voucherImage.name}</p>
                                                                     <img
@@ -646,7 +669,7 @@ export default function ManufacturerDashboard() {
                                                             type="button"
                                                             className="w-full bg-primary text-primary-foreground py-2 px-4 rounded-md hover:bg-primary/90 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                                                             onClick={handleMintVoucher}
-                                                            disabled={loading}
+                                                            disabled={loading || isImageUploading}
                                                         >
                                                             {loading ? 'Minting...' : 'Mint Voucher'}
                                                         </button>

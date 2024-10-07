@@ -2441,6 +2441,14 @@
     varuint-bitcoin "2.0.0"
     wif "^5.0.0"
 
+"@types/bs58@^4.0.4":
+  version "4.0.4"
+  resolved "https://registry.npmjs.org/@types/bs58/-/bs58-4.0.4.tgz#49fbcb0c7db5f7cea26f0e0f61dc4a41a2445aab"
+  integrity sha512-0IEpMFXXQi2zXaXl9GJ3sRwQo0uEkD+yFOv+FnAU5lkPtcu6h61xb7jc2CFPEZ5BUOaiP13ThuGc9HD4R8lR5g==
+  dependencies:
+    "@types/node" "*"
+    base-x "^3.0.6"
+
 "@types/connect@^3.4.33":
   version "3.4.38"
   resolved "https://registry.yarnpkg.com/@types/connect/-/connect-3.4.38.tgz#5ba7f3bc4fbbdeaff8dded952e5ff2cc53f8d858"
@@ -3306,7 +3314,7 @@ bare-stream@^2.0.0:
     b4a "^1.6.6"
     streamx "^2.20.0"
 
-base-x@^3.0.2, base-x@^3.0.9:
+base-x@^3.0.2, base-x@^3.0.6, base-x@^3.0.9:
   version "3.0.10"
   resolved "https://registry.yarnpkg.com/base-x/-/base-x-3.0.10.tgz#62de58653f8762b5d6f8d9fe30fa75f7b2585a75"
   integrity sha512-7d0s06rR9rYaIWHkpfLIFICM/tkSVdoPC9qYAQRpxn9DdKNWNsKC0uk++akckyLq16Tx2WIinnZ6WRriAt6njQ==
@@ -3660,7 +3668,7 @@ bs58@^5.0.0:
 
 bs58@^6.0.0:
   version "6.0.0"
-  resolved "https://registry.yarnpkg.com/bs58/-/bs58-6.0.0.tgz#a2cda0130558535dd281a2f8697df79caaf425d8"
+  resolved "https://registry.npmjs.org/bs58/-/bs58-6.0.0.tgz#a2cda0130558535dd281a2f8697df79caaf425d8"
   integrity sha512-PD0wEnEYg6ijszw/u8s+iI3H17cTymlrwkKhDhPZq+Sokl3AU4htyBFTjAeNAlCCmg0f53g6ih3jATyCKftTfw==
   dependencies:
     base-x "^5.0.0"

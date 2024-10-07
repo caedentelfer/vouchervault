@@ -223,7 +223,139 @@ export class TokenUtils {
         }
     }
 
+    /**
+  * Retrieves the recipient (target company) wallet address from a given escrow address.
+  * 
+  * @param escrowAddress The public key of the escrow account as a string.
+  * @returns The recipient's wallet address as a string, or null if not found.
+  */
+    async getRecipientFromEscrow(escrowAddress: string): Promise<string | null> {
+        try {
+            const escrowPubkey = new PublicKey(escrowAddress);
+            const accountInfo = await this.connection.getAccountInfo(escrowPubkey);
 
+            if (accountInfo === null) {
+                // Escrow account does not exist
+                return null;
+            }
+
+            const data = accountInfo.data;
+
+            // Ensure the data buffer is long enough to contain a public key (32 bytes)
+            if (data.length < 32) {
+                // Not enough data to extract a public key
+                return null;
+            }
+
+            // Extract the first 32 bytes as the recipient's public key
+            const recipientBytes = data.slice(0, 32);
+            const recipientPubkey = new PublicKey(recipientBytes);
+
+            // Return the base58-encoded recipient address
+            return recipientPubkey.toBase58();
+        } catch (error) {
+            // Handle any errors that occur during extraction
+            return null;
+        }
+    }
+
+
+    /**
+    * Decode and print the entire escrow account data.
+    * Useful for determining byte offsets.
+    * 
+    * @param escrowAddress The public key of the escrow account as a string.
+    * @param searchPublicKey (Optional) The public key to search for within the escrow data.
+    */
+    async printEscrowAccountData(escrowAddress: string, searchPublicKey?: string): Promise<void> {
+        try {
+            const escrowPubkey = new PublicKey(escrowAddress);
+            const accountInfo = await this.connection.getAccountInfo(escrowPubkey);
+
+            if (accountInfo === null) {
+                console.error('Escrow account not found:', escrowAddress);
+                return;
+            }
+
+            const data = accountInfo.data;
+
+            console.log('--- Escrow Account Data ---');
+            console.log('Total Length:', data.length, 'bytes');
+            console.log('Hex Representation:', data.toString('hex'));
+            console.log('UTF-8 Representation:', data.toString('utf8'));
+            console.log('--- Detailed Byte-by-Byte Data ---');
+
+            for (let i = 0; i < data.length; i++) {
+                const byte = data[i];
+                const hex = byte.toString(16).padStart(2, '0');
+                const ascii = (byte >= 32 && byte <= 126) ? String.fromCharCode(byte) : '.';
+                console.log(`Byte ${i}: 0x${hex} (${ascii})`);
+            }
+
+            // If a public key to search for is provided
+            if (searchPublicKey) {
+                const targetPubkey = new PublicKey(searchPublicKey);
+                const targetBytes = targetPubkey.toBuffer();
+                const targetHex = targetBytes.toString('hex');
+
+                console.log(`--- Searching for Public Key: ${searchPublicKey} ---`);
+
+                // Convert data to hex string for easy searching
+                const dataHex = data.toString('hex');
+
+                // Find the starting index of the target hex in the data hex
+                const index = dataHex.indexOf(targetHex);
+
+                if (index !== -1) {
+                    // Each byte is represented by two hex characters
+                    const byteIndex = index / 2;
+                    console.log(`Public Key found starting at byte index: ${byteIndex}`);
+                } else {
+                    console.log('Public Key not found in escrow account data.');
+                }
+            }
+
+            console.log('----------------------------');
+        } catch (error) {
+            console.error('Error printing escrow account data:', error);
+        }
+    }
+
+    /**
+     * Extracts a 32-byte public key from the escrow account data starting at a specific byte index.
+     * 
+     * @param escrowAddress The public key of the escrow account as a string.
+     * @param startByte The starting byte index where the public key begins.
+     * @returns The extracted public key as a base58 string, or null if extraction fails.
+     */
+    async extractPublicKeyAtByteIndex(escrowAddress: string, startByte: number): Promise<string | null> {
+        try {
+            const escrowPubkey = new PublicKey(escrowAddress);
+            const accountInfo = await this.connection.getAccountInfo(escrowPubkey);
+
+            if (accountInfo === null) {
+                console.error('Escrow account not found:', escrowAddress);
+                return null;
+            }
+
+            const data = accountInfo.data;
+
+            if (data.length < startByte + 32) {
+                console.error('Data is too short to extract public key from the specified byte index.');
+                return null;
+            }
+
+            const publicKeyBytes = data.slice(startByte, startByte + 32);
+            const publicKey = new PublicKey(publicKeyBytes);
+
+            console.log(`Extracted Public Key at byte ${startByte}:`, publicKey.toBase58());
+
+            return publicKey.toBase58();
+        } catch (error) {
+            console.error('Error extracting public key from escrow data:', error);
+            return null;
+        }
+    }
 
 
 }

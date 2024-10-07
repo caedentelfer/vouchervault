@@ -130,6 +130,7 @@ export default function IssuerDashboard() {
     const [walletBalance, setWalletBalance] = useState<number | null>(null);
     const [isBalancePopupOpen, setIsBalancePopupOpen] = useState(false);
     const scannedRef = useRef(false);
+    const [showErrorPopup, setShowErrorPopup] = useState(false)
 
     useEffect(() => {
         if (connected) {
@@ -204,7 +205,7 @@ export default function IssuerDashboard() {
 
             const ata = await getAssociatedTokenAddress(
                 voucherPublicKey,
-                userWalletKey,
+                userWalletKey!,
                 false,
                 TOKEN_2022_PROGRAM_ID,
                 ASSOCIATED_TOKEN_PROGRAM_ID
@@ -316,23 +317,37 @@ export default function IssuerDashboard() {
                 tokenUtils.getTokenMetadata(tokenMintAddress).then((fetchedVoucherData) => {
                     setVoucherData(fetchedVoucherData);
 
+                    const targetEscrow = fetchedVoucherData.escrowAddress;
+                    const targetAddress = tokenUtils.getRecipientFromEscrow(targetEscrow);
+
                     if (peerID) {
                         const peerConnection = peerRef.current?.connect(peerID);
                         if (peerConnection) {
                             setConn(peerConnection);
                             peerConnection.on('open', async () => {
                                 console.log('Connected to Influencer:', peerID);
-                                peerConnection.send(userWalletKey?.toBase58() + ',' + tokenMintAddress);
+                                peerConnection.send(userWalletKey?.toBase58() + ',' + tokenMintAddress + ',' + targetEscrow);
 
-                                await checkTransferStatus(tokenMintAddress);
-                                console.log('Transfer status checked.');
+                                console.log('Target address: ', targetAddress);
+                                console.log('Wallet address: ', userWalletKey?.toBase58());
 
-                                if (transferSuccess) {
-                                    peerConnection.send('Transfer valid');
-                                } else {
+                                if (userWalletKey?.toBase58() !== await targetAddress) {
+                                    console.error('Wallet address does not match target address:', targetAddress);
+                                    setTransferSuccess(false);
+                                    setQrDialogOpen(false);
+                                    setTransferDialogOpen(false);
                                     peerConnection.send('Transfer invalid');
+                                    peerConnection.close();
+                                    setShowErrorPopup(true)
+                                    // Show error here
+                                    return;
+                                } else {
+                                    await checkTransferStatus(tokenMintAddress);
+                                    console.log('Transfer status checked.');
+
+                                    peerConnection.send('Transfer valid');
+                                    peerConnection.close();
                                 }
-                                peerConnection.close();
                             });
                         }
                     }
@@ -354,7 +369,7 @@ export default function IssuerDashboard() {
             try {
                 const ata = await getAssociatedTokenAddress(
                     new PublicKey(tokenMintAddress),
-                    userWalletKey,
+                    userWalletKey!,
                     false,
                     TOKEN_2022_PROGRAM_ID,
                     ASSOCIATED_TOKEN_PROGRAM_ID
@@ -429,6 +444,10 @@ export default function IssuerDashboard() {
             setWalletBalance(null);
         }
     };
+
+    const handleCloseErrorPopup = () => {
+        setShowErrorPopup(false)
+    }
 
     useEffect(() => {
         fetchWalletBalance();
@@ -594,6 +613,35 @@ export default function IssuerDashboard() {
                 </AnimatePresence>
 
                 <AnimatePresence>
+                    {showErrorPopup && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                        >
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.9, opacity: 0 }}
+                                className="bg-background p-8 rounded-lg shadow-xl max-w-md w-full"
+                            >
+                                <div className="flex items-center justify-center mb-4">
+                                    <AlertCircle className="text-destructive w-12 h-12" />
+                                </div>
+                                <h2 className="text-2xl font-bold mb-2 text-center text-destructive">Invalid Voucher</h2>
+                                <p className="text-center mb-6 text-muted-foreground">
+                                    This voucher cannot be redeemed at this store.
+                                </p>
+                                <button
+                                    onClick={handleCloseErrorPopup}
+                                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-lg text-lg font-semibold transition-colors duration-200"
+                                >
+                                    Close
+                                </button>
+                            </motion.div>
+                        </motion.div>
+                    )}
                     {qrDialogOpen && (
                         <motion.div
                             key="qr-dialog"
@@ -673,22 +721,29 @@ export default function IssuerDashboard() {
                                     ) : transferSuccess ? (
                                         <div>
                                             <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                                            <p className="text-lg mb-2 text-green-500 font-semibold">Transfer Successful!</p>
-                                            <p className="text-muted-foreground mb-4">The voucher has been successfully transferred.</p>
+                                            <p className="text-lg mb-2 text-green-500 font-semibold">Transfer Successful</p>
                                             {voucherData && (
-                                                <div className="bg-secondary p-4 rounded-lg mb-4">
-                                                    <img src={voucherData.uri} alt="Voucher" className="w-full h-40 object-cover rounded-lg mb-4" />
-                                                    <h3 className="font-semibold mb-2">Voucher Details:</h3>
+                                                <div className="bg-white p-4 rounded-lg mb-4 border-2 border-blue-500">
+                                                    <img
+                                                        src={voucherData.uri}
+                                                        alt="Voucher"
+                                                        className="w-40 h-40 object-cover rounded-lg mb-4 mx-auto"
+                                                    />
+                                                    <h3 className="font-semibold mb-2">{voucherData.name}</h3>
+                                                    <p className="text-sm font-medium mb-2">{voucherData.symbol}</p>
+                                                    <p className="text-sm text-muted-foreground mb-2">{voucherData.description}</p>
                                                     <p className="text-3xl font-bold text-green-500 mb-2">
                                                         {currencySymbol}{convertSolToLocalCurrency(Number(voucherData.escrow))}
                                                     </p>
-                                                    <p>Value: {voucherData.escrow} SOL</p>
-                                                    <p>Expiry: {new Date(voucherData.expiry).toLocaleDateString()}</p>
+                                                    <p className="text-sm text-muted-foreground mb-2">({voucherData.escrow} SOL)</p>
                                                 </div>
                                             )}
                                             <button
-                                                onClick={() => handleBurn(voucherData.mintAddress, voucherData.escrowAddress)}
-                                                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 py-2 px-4 rounded-lg text-lg font-semibold transition-colors duration-200 flex items-center justify-center"
+                                                onClick={() => voucherData && handleBurn(voucherData.mintAddress, voucherData.escrowAddress)}
+                                                className={`w-full ${burning
+                                                    ? 'bg-red-500 hover:bg-red-500'
+                                                    : 'bg-primary hover:bg-primary/90'
+                                                    } text-primary-foreground py-2 px-4 rounded-lg text-lg font-semibold transition-colors duration-200 flex items-center justify-center`}
                                                 disabled={burning}
                                             >
                                                 {burning ? (
