@@ -328,6 +328,8 @@ export default function IssuerDashboard() {
                                 console.log('Connected to Influencer:', peerID);
                                 peerConnection.send(userWalletKey?.toBase58() + ',' + tokenMintAddress + ',' + targetEscrow);
 
+                                console.log('User wallet address: ', userWalletKey?.toBase58());
+
                                 console.log('Target address: ', targetAddress);
                                 console.log('Wallet address: ', userWalletKey?.toBase58());
 

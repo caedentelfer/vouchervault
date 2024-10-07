@@ -73,12 +73,13 @@ export default function InfluencerDashboard() {
                         peer.destroy()
                     }
                 } else {
-                    const [thisWalletAddress, selectedVoucher, escrowAddress] = (data as string).split(',')
+                    const [thisWalletAddress, selectedVoucherString, escrowAddress] = (data as string).split(',')
                     console.log('Target wallet address:', thisWalletAddress)
-                    console.log('Selected voucher:', selectedVoucher)
-
+                    console.log('Selected voucher:', selectedVoucherString)
                     const tokenUtilsInstance = new TokenUtils()
-                    const targetAddress = tokenUtilsInstance.getRecipientFromEscrow(escrowAddress)
+
+                    const selectedVoucher: VoucherData = await tokenUtilsInstance.getTokenMetadata(selectedVoucherString)
+                    const targetAddress = tokenUtilsInstance.getRecipientFromEscrow(selectedVoucher.escrowAddress)
 
                     console.log('Target address:', targetAddress)
                     console.log('Attempting to redeem at address:', thisWalletAddress)
@@ -152,7 +153,7 @@ export default function InfluencerDashboard() {
         displaySuccessMessage('Voucher redeemed successfully')
     }
 
-    const transferToken = (targetWalletAddress: string, selectedVoucher: string) => {
+    const transferToken = (targetWalletAddress: string, selectedVoucher: VoucherData) => {
         console.log('transferToken function triggered')
 
         if (!connected) {
@@ -163,14 +164,14 @@ export default function InfluencerDashboard() {
         handleTransfer(targetWalletAddress, selectedVoucher)
     }
 
-    const handleTransfer = async (walletAddress: string, selectedVoucher: string) => {
+    const handleTransfer = async (walletAddress: string, selectedVoucher: VoucherData) => {
         if (!walletAddress || !selectedVoucher || !publicKey || !signTransaction) {
             console.error("Wallet not connected or voucher not selected")
             return
         }
 
         try {
-            const mintAddress = new PublicKey(selectedVoucher)
+            const mintAddress = new PublicKey(selectedVoucher.mintAddress)
             const recipientAddress = new PublicKey(walletAddress)
 
             console.log('1. Attempting to transfer voucher with: ', mintAddress.toString(), publicKey.toString(), recipientAddress.toString())
@@ -234,7 +235,7 @@ export default function InfluencerDashboard() {
             )
 
             console.log(`Transferred voucher ${mintAddress} to wallet ${recipientAddress.toString()} with signature: ${signature}`)
-            handleVoucherTransferred(selectedVoucher)
+            handleVoucherTransferred(selectedVoucher.mintAddress)
 
         } catch (error) {
             console.error("Failed to transfer voucher", error)

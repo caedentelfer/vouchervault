@@ -234,6 +234,8 @@ export class TokenUtils {
             const escrowPubkey = new PublicKey(escrowAddress);
             const accountInfo = await this.connection.getAccountInfo(escrowPubkey);
 
+            //this.printEscrowAccountData(escrowAddress, 'FTW6cEkK2giGM5GYZre4atHMu683oHUkALtamGk5HfBo');
+
             if (accountInfo === null) {
                 // Escrow account does not exist
                 return null;
@@ -248,7 +250,7 @@ export class TokenUtils {
             }
 
             // Extract the first 32 bytes as the recipient's public key
-            const recipientBytes = data.slice(0, 32);
+            const recipientBytes = data.slice(32, 64);
             const recipientPubkey = new PublicKey(recipientBytes);
 
             // Return the base58-encoded recipient address
