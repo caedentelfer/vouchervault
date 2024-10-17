@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { Connection, PublicKey, Transaction } from '@solana/web3.js'
 import { createTransferInstruction, createAssociatedTokenAccountInstruction, getAssociatedTokenAddress, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
-import { ChevronDown, ChevronUp, Send, Copy, X, CheckCircle, AlertCircle, ExternalLink, Wallet } from 'lucide-react'
+import { ChevronDown, ChevronUp, Send, Copy, X, CheckCircle, AlertCircle, ExternalLink, Wallet, Instagram } from 'lucide-react'
 import { useCountry } from '../contexts/CountryContext'
 
 interface VoucherData {
@@ -24,6 +24,12 @@ interface VoucherListProps {
     userType: 'payer' | 'receiver' | 'provider'
     onRedeem?: (voucher: VoucherData) => void
     onVoucherTransferred?: (mintAddress: string) => void
+}
+
+interface Influencer {
+    name: string;
+    walletAddress: string;
+    instagram: string;
 }
 
 const FALLBACK_IMAGE_URL = "https://cdn-icons-png.flaticon.com/512/3514/3514447.png"
@@ -46,6 +52,26 @@ export default function Component(props: VoucherListProps = {
     const [preloadedImages, setPreloadedImages] = useState<{ [key: string]: string }>({})
     const imageRefs = useRef<{ [key: string]: HTMLImageElement | null }>({})
     const { country, exchangeRate } = useCountry()
+    const [influencers, setInfluencers] = useState<Influencer[]>([]);
+    const hasFetchedInfluencers = useRef(false);
+
+    const loadInfluencerData = async () => {
+        try {
+          const response = await fetch('/api/InfluencerLoader');
+          const data = await response.json();
+          setInfluencers(data);
+          console.log('Influencer data:', influencers);
+          hasFetchedInfluencers.current = true;
+        } catch (error) {
+          console.error('Error loading influencer data:', error);
+        }
+    };
+
+    useEffect(() => {
+        if (!hasFetchedInfluencers.current) {
+          loadInfluencerData();
+        }
+    }, []);
 
     useEffect(() => {
         const preloadImages = async () => {
@@ -79,6 +105,10 @@ export default function Component(props: VoucherListProps = {
             }
         })
     }, [preloadedImages])
+
+    const handleInfluencerSelect = (walletAddress: string) => {
+        setWalletAddress(walletAddress);
+    };
 
     const handleClick = (id: string) => {
         setExpandedVoucherId(expandedVoucherId === id ? null : id)
@@ -400,16 +430,42 @@ export default function Component(props: VoucherListProps = {
                                 </button>
                             </div>
                             <p className="text-sm text-gray-600 mb-4">
-                                Transfer this voucher to a recipient. Paste their wallet address below.
+                                Transfer this voucher to a recipient. Choose an influencer or paste a custom wallet address below.
                             </p>
-                            <input
-                                type="text"
-                                value={walletAddress}
-                                onChange={(e) => setWalletAddress(e.target.value)}
-                                placeholder="Recipient Wallet Address"
-                                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
-                                disabled={busySending || transferSuccess}
-                            />
+                            <div className="mb-4">
+                                <h3 className="text-lg font-semibold mb-2">Select an Influencer:</h3>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {influencers.map((influencer) => (
+                                        <button
+                                            key={influencer.walletAddress}
+                                            onClick={() => handleInfluencerSelect(influencer.walletAddress)}
+                                            className="flex items-center justify-between p-2 border border-gray-300 rounded-md hover:bg-gray-100 transition duration-300"
+                                        >
+                                            <span>{influencer.name}</span>
+                                            <a
+                                                href={influencer.instagram}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="text-blue-500 hover:text-blue-700"
+                                            >
+                                                <Instagram size={20} />
+                                            </a>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="mb-4">
+                                <h3 className="text-lg font-semibold mb-2">Or enter a custom wallet address:</h3>
+                                <input
+                                    type="text"
+                                    value={walletAddress}
+                                    onChange={(e) => setWalletAddress(e.target.value)}
+                                    placeholder="Custom Wallet Address"
+                                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    disabled={busySending || transferSuccess}
+                                />
+                            </div>
                             {busySending && (
                                 <div className="flex justify-center mb-4">
                                     <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
@@ -438,7 +494,7 @@ export default function Component(props: VoucherListProps = {
                                 <button
                                     onClick={handleTransfer}
                                     className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition duration-300 flex items-center justify-center"
-                                    disabled={busySending || transferSuccess}
+                                    disabled={busySending || transferSuccess || !walletAddress}
                                 >
                                     <Send className="w-5 h-5 mr-2" />
                                     Transfer

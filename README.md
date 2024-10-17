@@ -1,5 +1,8 @@
 # Team Squirtle
 
+[![pipeline status](https://git.cs.sun.ac.za/Computer-Science/rw344/2024/Squirtle-cs344/badges/master/pipeline.svg)](https://git.cs.sun.ac.za/Computer-Science/rw344/2024/Squirtle-cs344/-/commits/master)
+
+
 As part of the impact.com platform (see https://impact.com/) we often connect 3 parties together, who do not necessarily know each other and have no formal relationship, but need to do trusted business with each other.  a) An entity paying for goods (e.g. manufacturer or brand) needs to be certain that only specific goods can be bought by the person receiving the goods. They must be able to guarantee that their money is being spent as intended.  b) An entity providing the goods (e.g. an advertiser) needs to be certain that they will get paid for the goods.  c) An entity receiving goods (e.g. end-user or social influencer) needs to be certain they will receive the goods.  The proposed project will use blockchain (as a public ledger/system of record) to create crypto vouchers that can be issued automatically to provide a 3-way contract between these parties. The project will involve researching blockchain (and crypto technologies) and providing a platform to request, supply, and verify vouchers. The blockchain also provides a ledger that can be inspected and queried, even for historical contracts.
 
 ## Project Setup

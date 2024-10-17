@@ -14,6 +14,7 @@ const WalletModalProviderDynamic = dynamic(
 
 // Import the CSS for the wallet modal
 import '@solana/wallet-adapter-react-ui/styles.css'
+import React from 'react'
 
 export function SolanaWalletProvider({ children }: { children: React.ReactNode }) {
     const network = WalletAdapterNetwork.Devnet

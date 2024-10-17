@@ -147,6 +147,49 @@ createErrorFromCodeLookup.set(0x5, () => new VoucherExpiredError())
 createErrorFromNameLookup.set('VoucherExpired', () => new VoucherExpiredError())
 
 /**
+ * InvalidIssuer: 'Invalid Issuer'
+ *
+ * @category Errors
+ * @category generated
+ */
+export class InvalidIssuerError extends Error {
+  readonly code: number = 0x6
+  readonly name: string = 'InvalidIssuer'
+  constructor() {
+    super('Invalid Issuer')
+    if (typeof Error.captureStackTrace === 'function') {
+      Error.captureStackTrace(this, InvalidIssuerError)
+    }
+  }
+}
+
+createErrorFromCodeLookup.set(0x6, () => new InvalidIssuerError())
+createErrorFromNameLookup.set('InvalidIssuer', () => new InvalidIssuerError())
+
+/**
+ * VoucherNotExpired: 'Voucher Not Expired'
+ *
+ * @category Errors
+ * @category generated
+ */
+export class VoucherNotExpiredError extends Error {
+  readonly code: number = 0x7
+  readonly name: string = 'VoucherNotExpired'
+  constructor() {
+    super('Voucher Not Expired')
+    if (typeof Error.captureStackTrace === 'function') {
+      Error.captureStackTrace(this, VoucherNotExpiredError)
+    }
+  }
+}
+
+createErrorFromCodeLookup.set(0x7, () => new VoucherNotExpiredError())
+createErrorFromNameLookup.set(
+  'VoucherNotExpired',
+  () => new VoucherNotExpiredError()
+)
+
+/**
  * Attempts to resolve a custom program error from the provided error code.
  * @category Errors
  * @category generated

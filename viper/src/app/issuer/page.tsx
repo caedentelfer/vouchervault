@@ -168,18 +168,38 @@ export default function IssuerDashboard() {
     useEffect(() => {
         const fetchExchangeRate = async () => {
             try {
-                const response = await fetch(`https://api.exchangerate-api.com/v4/latest/USD`)
+                if (!country.currency) {
+                    console.error('Country currency not defined')
+                    return
+                }
+
+                // Ensure the currency code is lowercase as required by CoinGecko
+                const currency = country.currency.toLowerCase()
+
+                // Fetch SOL price in the desired currency from CoinGecko
+                const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=${currency}`)
                 const data = await response.json()
-                const solToUsd = 20 // 1 SOL = $20 USD 
-                const usdToLocalCurrency = data.rates[country.currency]
-                setExchangeRate(solToUsd * usdToLocalCurrency)
-                setCurrencySymbol(country.currencySymbol)
+
+                if (data.solana && data.solana[currency] !== undefined) {
+                    const solPriceInLocalCurrency = data.solana[currency]
+                    setExchangeRate(solPriceInLocalCurrency)
+                    setCurrencySymbol(country.currencySymbol)
+                    console.log(`Fetched SOL price in ${currency.toUpperCase()}: ${solPriceInLocalCurrency}`)
+                } else {
+                    throw new Error(`SOL price not available in ${currency.toUpperCase()}`)
+                }
             } catch (error) {
-                console.error('Failed to fetch exchange rate:', error)
+                console.error('Failed to fetch exchange rate from CoinGecko:', error)
+                // Optionally, you can fallback to a default rate or another API
             }
         }
 
         fetchExchangeRate()
+
+        // Optionally, set up an interval to refresh the exchange rate periodically
+        const intervalId = setInterval(fetchExchangeRate, 60000) // Refresh every 60 seconds
+
+        return () => clearInterval(intervalId)
     }, [country])
 
     const convertSolToLocalCurrency = (solAmount: number) => {
@@ -328,8 +348,6 @@ export default function IssuerDashboard() {
                                 console.log('Connected to Influencer:', peerID);
                                 peerConnection.send(userWalletKey?.toBase58() + ',' + tokenMintAddress + ',' + targetEscrow);
 
-                                console.log('User wallet address: ', userWalletKey?.toBase58());
-
                                 console.log('Target address: ', targetAddress);
                                 console.log('Wallet address: ', userWalletKey?.toBase58());
 
@@ -344,7 +362,7 @@ export default function IssuerDashboard() {
                                     // Show error here
                                     return;
                                 } else {
-                                    await checkTransferStatus(tokenMintAddress);
+                                    checkTransferStatus(tokenMintAddress);
                                     console.log('Transfer status checked.');
 
                                     peerConnection.send('Transfer valid');
@@ -631,7 +649,7 @@ export default function IssuerDashboard() {
                                 <div className="flex items-center justify-center mb-4">
                                     <AlertCircle className="text-destructive w-12 h-12" />
                                 </div>
-                                <h2 className="text-2xl font-bold mb-2 text-center text-destructive">Invalid Voucher</h2>
+                                <h2 className="text-2xl font-bold mb-2 text-destructive text-center">Invalid Voucher</h2>
                                 <p className="text-center mb-6 text-muted-foreground">
                                     This voucher cannot be redeemed at this store.
                                 </p>

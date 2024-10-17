@@ -1,10 +1,10 @@
-// src/utils/TokenUtils.ts
-
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID, AccountLayout } from '@solana/spl-token';
 import { VoucherData } from '../utils/VoucherData';
 
 /**
+ * @author Caeden
+ * 
  * @brief Utility class to fetch token accounts and metadata
  *      --> Parses wallet address to fetch token accounts on the blockchain
  *     --> Fetches metadata for each token account 
@@ -19,13 +19,8 @@ export class TokenUtils {
         this.tokenProgramId = new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'); // NB do not change this
     }
 
-    /**
-     * Iterates through a wallet's token accounts and returns an array of mint addresses
-     * stored inside the wallet, excluding zero balance accounts.
-     * 
-     * @param walletAddress The public key of the wallet as a string.
-     * @returns An array of mint addresses as strings.
-     */
+    // Iterates through a wallet's token accounts and returns an array of mint addresses
+    // stored inside the wallet
     async getMintAddressesFromWalletAddress(walletAddress: string): Promise<string[]> {
         try {
             const walletPublicKey = new PublicKey(walletAddress);
@@ -46,10 +41,11 @@ export class TokenUtils {
 
                 // Check the balance for the mint address
                 const balance = accountData.amount;
-                // Convert to number
+                // convert to number
                 if (balance === BigInt(0)) {
                     console.log('Skipping zero balance account:', mintAddress.toBase58());
                     continue;
+                    //console.log('Zero balance account:', mintAddress.toBase58());
                 }
 
                 mintAddresses.push(mintAddress.toBase58());
@@ -62,24 +58,12 @@ export class TokenUtils {
         }
     }
 
-    /**
-     * Utility function to read a string from a buffer
-     * 
-     * @param buffer The buffer containing the data.
-     * @param offset The starting byte offset.
-     * @param length The number of bytes to read.
-     * @returns The decoded string.
-     */
+    // Utility function to read a string from a buffer
     private readString(buffer: Buffer, offset: number, length: number): string {
-        return buffer.slice(offset, offset + length).toString('utf8').replace(/\0/g, '').trim();
+        return buffer.slice(offset, offset + length).toString('utf8').replace(/\0/g, '`').trim();
     }
 
-    /**
-     * Fetch metadata for a token account with its mint address
-     * 
-     * @param mintAddress The mint address as a string.
-     * @returns A VoucherData object containing the metadata.
-     */
+    // Fetch metadata for a token account with its mint address
     async getTokenMetadata(mintAddress: string): Promise<VoucherData> {
         try {
             const mintPublicKey = new PublicKey(mintAddress);
@@ -91,7 +75,6 @@ export class TokenUtils {
 
             const data = accountInfo.data;
 
-            // Adjust these offsets based on your program's data structure
             const metadataStartIndex = 304;
             const metadataLength = 240;
             const metadata = this.readString(data, metadataStartIndex, metadataLength);
@@ -127,7 +110,7 @@ export class TokenUtils {
                     } else if (count === 3) {
                         escrowAddress = metadata.substring(index);
                         escrowAddress = escrowAddress.substring(14);
-                        // Handle expiry
+                        // handle expiry
                         if (escrowAddress.includes('expiry')) {
                             expiry = escrowAddress.indexOf('expiry');
                             escrowAddress = escrowAddress.substring(0, expiry - 4);
@@ -153,7 +136,7 @@ export class TokenUtils {
             voucherData = (await this.fetchDataFromIPFS(uri));
 
             if (voucherData != null) {
-                // Set description to URI returned description
+                // set description to uri returned description\
                 name = voucherData.name;
                 symbol = voucherData.symbol;
                 description = voucherData.description;
@@ -167,12 +150,7 @@ export class TokenUtils {
         }
     }
 
-    /**
-     * Populate an array of VoucherData type --> Used for VoucherList objects
-     * 
-     * @param walletAddress The public key of the wallet as a string.
-     * @returns An array of VoucherData objects.
-     */
+    // Populate an array of VoucherData type --> Used for VoucherList objects
     async populateVoucherArray(walletAddress: string): Promise<VoucherData[]> {
         try {
             const mintAddresses = await this.getMintAddressesFromWalletAddress(walletAddress);
@@ -190,12 +168,7 @@ export class TokenUtils {
         }
     }
 
-    /**
-     * Fetch the amount held in an escrow account
-     * 
-     * @param escrowPublicKey The public key of the escrow account as a string.
-     * @returns The balance in SOL.
-     */
+    // Fetch the amount held in an escrow account
     async getEscrowAccountAmount(escrowPublicKey: string): Promise<number> {
         try {
             const escrowPubkey = new PublicKey(escrowPublicKey);
@@ -214,12 +187,8 @@ export class TokenUtils {
         }
     }
 
-    /**
-     * Fetch data from IPFS and return a VoucherData object
-     * 
-     * @param ipfsUrl The URL to fetch the JSON metadata from IPFS.
-     * @returns A VoucherData object or null if fetching fails.
-     */
+    // Fetch data from IPFS and return a VoucherData object
+    // ---> uti points to JSON with data & IPFS for image
     async fetchDataFromIPFS(ipfsUrl: string): Promise<VoucherData | null> {
         try {
             const response = await fetch(ipfsUrl);
@@ -255,94 +224,8 @@ export class TokenUtils {
         }
     }
 
-    /**
-     * Retrieves the recipient (target company) wallet address from a given escrow address.
-     * 
-     * @param escrowAddress The public key of the escrow account as a string.
-     * @returns The recipient's wallet address as a string, or null if not found.
-     */
-    async getRecipientFromEscrow(escrowAddress: string): Promise<string | null> {
-        try {
-            const escrowPubkey = new PublicKey(escrowAddress);
-            const accountInfo = await this.connection.getAccountInfo(escrowPubkey);
 
-            if (accountInfo === null) {
-                console.error('Escrow account not found:', escrowAddress);
-                return null;
-            }
 
-            const data = accountInfo.data;
 
-            /**
-             * @brief Decode the recipient address from the escrow account data.
-             * 
-             * Assumptions:
-             * - The escrow account data has a fixed layout.
-             * - The recipient's public key is stored at a specific byte offset.
-             * - Adjust `recipientOffset` based on your program's actual data structure.
-             */
-
-            // Example: Adjust these offsets based on your program's data structure
-            const accountDiscriminatorLength = 8; // Commonly, account discriminators are 8 bytes
-            const payerPublicKeyLength = 32; // Payer's public key is 32 bytes
-            const recipientOffset = accountDiscriminatorLength + payerPublicKeyLength; // Starting byte for recipient's public key
-
-            // Ensure the data buffer is long enough
-            if (data.length < recipientOffset + 32) {
-                console.error('Escrow account data is too short to contain recipient address.');
-                return null;
-            }
-
-            const recipientBytes = data.slice(recipientOffset, recipientOffset + 32);
-            const recipientPubkey = new PublicKey(recipientBytes);
-
-            console.log('Decoded Recipient (Target Company) Address:', recipientPubkey.toBase58());
-
-            return recipientPubkey.toBase58();
-        } catch (error) {
-            console.error('Error fetching recipient from escrow:', error);
-            return null;
-        }
-    }
-
-    /**
-     * Decode and print the entire escrow account data.
-     * Useful for determining byte offsets.
-     * 
-     * @param escrowAddress The public key of the escrow account as a string.
-     */
-    async printEscrowAccountData(escrowAddress: string): Promise<void> {
-        try {
-            const escrowPubkey = new PublicKey(escrowAddress);
-            const accountInfo = await this.connection.getAccountInfo(escrowPubkey);
-
-            if (accountInfo === null) {
-                console.error('Escrow account not found:', escrowAddress);
-                return;
-            }
-
-            const data = accountInfo.data;
-
-            console.log('--- Escrow Account Data ---');
-            console.log('Total Length:', data.length, 'bytes');
-            console.log('Hex Representation:', data.toString('hex'));
-
-            // Attempt to print as UTF-8 string (may include binary data)
-            const utf8Data = data.toString('utf8');
-            console.log('UTF-8 Representation:', utf8Data);
-
-            // For better readability, print in chunks
-            const chunkSize = 32;
-            for (let i = 0; i < data.length; i += chunkSize) {
-                const chunk = data.slice(i, i + chunkSize);
-                console.log(`Bytes ${i}-${i + chunkSize - 1}:`, chunk.toString('hex'));
-            }
-
-            console.log('----------------------------');
-        } catch (error) {
-            console.error('Error printing escrow account data:', error);
-        }
-    }
 }
-
 export default TokenUtils;

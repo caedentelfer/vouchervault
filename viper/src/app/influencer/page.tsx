@@ -60,10 +60,6 @@ export default function InfluencerDashboard() {
 
                 if (data === 'Transfer valid') {
                     console.log('valid transfer -> refresh')
-                    handleCloseDialog()
-                    setLoading(true)
-                    fetchVouchers()
-                    displaySuccessMessage('Voucher redeemed successfully')
                 } else if (data == 'Transfer invalid') {
                     console.log('invalid transfer -> show error')
                     setShowErrorPopup(true)

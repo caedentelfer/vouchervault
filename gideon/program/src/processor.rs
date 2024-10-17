@@ -6,8 +6,8 @@ use solana_program::{
 use crate::{
     instruction::GideonInstruction,
     instructions::{
-        burn::burn_voucher_release_escrow, escrow::init_escrow, init_authority::init,
-        mint::mint_voucher,
+        burn::burn_voucher_release_escrow, escrow::init_escrow, expired::release_expired_escrow,
+        init_authority::init, mint::mint_voucher,
     },
 };
 
@@ -33,6 +33,10 @@ pub fn process_instruction(
         GideonInstruction::ReleaseEscrowAndBurnVoucher => {
             burn_voucher_release_escrow(program_id, accounts)?;
             Ok(())
+        }
+        GideonInstruction::ReleaseExpiredEscrow => {
+            release_expired_escrow(accounts)?;
+            Ok({})
         }
     }
 }

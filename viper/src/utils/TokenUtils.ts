@@ -224,11 +224,11 @@ export class TokenUtils {
     }
 
     /**
-  * Retrieves the recipient (target company) wallet address from a given escrow address.
-  * 
-  * @param escrowAddress The public key of the escrow account as a string.
-  * @returns The recipient's wallet address as a string, or null if not found.
-  */
+      * Retrieves the recipient (target company) wallet address from a given escrow address.
+      * 
+      * @param escrowAddress The public key of the escrow account as a string.
+      * @returns The recipient's wallet address as a string, or null if not found.
+      */
     async getRecipientFromEscrow(escrowAddress: string): Promise<string | null> {
         try {
             const escrowPubkey = new PublicKey(escrowAddress);
@@ -249,14 +249,14 @@ export class TokenUtils {
                 return null;
             }
 
-            // Extract the first 32 bytes as the recipient's public key
+            // Extract the second 32 bytes as the recipient's public key -> this is where the target address is stored in the escrow 
+            // ( Took me forerver lol )
             const recipientBytes = data.slice(32, 64);
             const recipientPubkey = new PublicKey(recipientBytes);
 
             // Return the base58-encoded recipient address
             return recipientPubkey.toBase58();
         } catch (error) {
-            // Handle any errors that occur during extraction
             return null;
         }
     }
@@ -294,7 +294,6 @@ export class TokenUtils {
                 console.log(`Byte ${i}: 0x${hex} (${ascii})`);
             }
 
-            // If a public key to search for is provided
             if (searchPublicKey) {
                 const targetPubkey = new PublicKey(searchPublicKey);
                 const targetBytes = targetPubkey.toBuffer();
@@ -302,14 +301,11 @@ export class TokenUtils {
 
                 console.log(`--- Searching for Public Key: ${searchPublicKey} ---`);
 
-                // Convert data to hex string for easy searching
                 const dataHex = data.toString('hex');
 
-                // Find the starting index of the target hex in the data hex
                 const index = dataHex.indexOf(targetHex);
 
                 if (index !== -1) {
-                    // Each byte is represented by two hex characters
                     const byteIndex = index / 2;
                     console.log(`Public Key found starting at byte index: ${byteIndex}`);
                 } else {

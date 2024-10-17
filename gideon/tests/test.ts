@@ -28,6 +28,7 @@ import {
     createInitEscrowAndMintVoucherInstruction,
     createInitMintAuthorityInstruction,
     createReleaseEscrowAndBurnVoucherInstruction,
+    createReleaseExpiredEscrowInstruction,
 } from './generated';
 import { TokenMetadata } from '@solana/spl-token-metadata';
 import { assert } from 'chai';
@@ -45,8 +46,8 @@ describe('gideon', async () => {
     const description = 'Nike running shoes and stuff';
     const symbol = 'NIKE';
     var metadataURI = '';
-    const expiry = Date.now() + 1000 * 60 * 60 * 24 * 7; // 1 week from now
-    // const expiry = Date.now() - 1000 * 60 * 60 * 24 * 1; // 1 day ago
+    // const expiry = Date.now() + 1000 * 60 * 60 * 24 * 7; // 1 week from now
+    const expiry = Date.now() - 1000 * 60 * 60 * 24 * 30; // 1 day ago
 
     const connection = new Connection(`http://localhost:8899`, 'confirmed');
     //const connection = new Connection('https://api.devnet.solana.com/', 'confirmed');
@@ -291,15 +292,59 @@ describe('gideon', async () => {
         console.log(`   Tx Signature: ${sx}`);
     });
 
-    it('Release Escrow and Burn Voucher', async () => {
-        const ata = await getAssociatedTokenAddress(
-            mintKeypair.publicKey,
-            recipient.publicKey,
-            false,
-            TOKEN_2022_PROGRAM_ID,
-            ASSOCIATED_TOKEN_PROGRAM_ID
-        );
+    // it('Release Escrow and Burn Voucher', async () => {
+    //     const ata = await getAssociatedTokenAddress(
+    //         mintKeypair.publicKey,
+    //         recipient.publicKey,
+    //         false,
+    //         TOKEN_2022_PROGRAM_ID,
+    //         ASSOCIATED_TOKEN_PROGRAM_ID
+    //     );
 
+    //     const escrowAccount = PublicKey.findProgramAddressSync(
+    //         [
+    //             Buffer.from('escrow'),
+    //             payer.publicKey.toBuffer(),
+    //             recipient.publicKey.toBuffer(),
+    //             mintKeypair.publicKey.toBuffer(),
+    //         ],
+    //         program.publicKey
+    //     );
+
+    //     const ix = createReleaseEscrowAndBurnVoucherInstruction({
+    //         payer: recipient.publicKey,
+    //         ata: ata,
+    //         mintAccount: mintKeypair.publicKey,
+    //         mintAuthority: mintAuthority[0],
+    //         escrowAccount: escrowAccount[0],
+    //         tokenProgram: TOKEN_2022_PROGRAM_ID,
+    //         clockProgram: SYSVAR_CLOCK_PUBKEY,
+    //         systemProgram: SystemProgram.programId,
+    //     });
+
+    //     console.log('Burning Voucher...');
+    //     console.log(`   Recipient: ${recipient.publicKey}`);
+    //     console.log(`   ATA: ${ata}`);
+    //     console.log(`   Mint: ${mintKeypair.publicKey}`);
+    //     console.log(`   Mint Authority: ${mintAuthority[0]}`);
+    //     console.log(`   Escrow: ${escrowAccount[0]}`);
+
+    //     try {
+    //         const sx = await sendAndConfirmTransaction(
+    //             connection,
+    //             new Transaction().add(ix),
+    //             [recipient]
+    //         );
+    //         console.log('Success!');
+    //         console.log(`   Tx Signature: ${sx}`);
+    //     } catch (e) {
+    //         console.log(await e.getLogs());
+    //         console.log(e);
+    //         throw new Error('Failed');
+    //     }
+    // });
+
+    it("Release Expired Escrow", async () => {
         const escrowAccount = PublicKey.findProgramAddressSync(
             [
                 Buffer.from('escrow'),
@@ -310,29 +355,23 @@ describe('gideon', async () => {
             program.publicKey
         );
 
-        const ix = createReleaseEscrowAndBurnVoucherInstruction({
-            payer: recipient.publicKey,
-            ata: ata,
-            mintAccount: mintKeypair.publicKey,
-            mintAuthority: mintAuthority[0],
+        const ix = createReleaseExpiredEscrowInstruction({
+            payer: payer.publicKey,
             escrowAccount: escrowAccount[0],
-            tokenProgram: TOKEN_2022_PROGRAM_ID,
+            mintAccount: mintKeypair.publicKey,
             clockProgram: SYSVAR_CLOCK_PUBKEY,
-            systemProgram: SystemProgram.programId,
         });
 
-        console.log('Burning Voucher...');
-        console.log(`   Recipient: ${recipient.publicKey}`);
-        console.log(`   ATA: ${ata}`);
-        console.log(`   Mint: ${mintKeypair.publicKey}`);
-        console.log(`   Mint Authority: ${mintAuthority[0]}`);
+        console.log('Releasing Expired Escrow...');
+        console.log(`   Payer: ${payer.publicKey}`);
         console.log(`   Escrow: ${escrowAccount[0]}`);
+        console.log(`   Mint: ${mintKeypair.publicKey}`);
 
         try {
             const sx = await sendAndConfirmTransaction(
                 connection,
                 new Transaction().add(ix),
-                [recipient]
+                [payer]
             );
             console.log('Success!');
             console.log(`   Tx Signature: ${sx}`);

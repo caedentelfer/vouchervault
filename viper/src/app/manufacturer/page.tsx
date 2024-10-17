@@ -5,23 +5,25 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useWallet } from '@solana/wallet-adapter-react'
 import * as web3 from '@solana/web3.js'
 import * as splToken from '@solana/spl-token'
-import { CurrencyConverter } from '../../utils/CurrencyConverter'
 import { createInitEscrowAndMintVoucherInstruction, InitEscrowAndMintVoucherInstructionAccounts, InitEscrowAndMintVoucherInstructionArgs } from '../../generated/instructions/InitEscrowAndMintVoucher'
 import { InitEscrowArgs } from '../../generated/types/InitEscrowArgs'
 import { MintVoucherArgs } from '../../generated/types/MintVoucherArgs'
 import { pinFileToIPFS, pinJSONToIPFS } from '../../utils/uri'
-import { CreditCard, Send, History, X, Upload, CheckCircle, AlertCircle, Coins, UserCheck, Clock, Loader2, Gift, ChevronUp, ChevronDown } from 'lucide-react'
+import { CreditCard, Send, History, X, Upload, CheckCircle, AlertCircle, Coins, UserCheck, Clock, Loader2, Gift, ChevronUp, ChevronDown, BarChart, LineChart, BadgeX, Settings } from 'lucide-react'
 import { TokenUtils } from '../../utils/TokenUtils'
 import { VoucherData } from '../../utils/VoucherData'
 import VoucherList from '../components/VoucherList'
-import { RecentTransactions } from '../utils/RecentTransactions'
+import { TransferHistory } from '../components/TransferHistory'
+import { RecentTransactions, fetchCompanies } from '../utils/RecentTransactions'
 import SuccessBanner from '../components/SuccessBanner'
 import { useCountry } from '../contexts/CountryContext'
+import Analytics from '../components/Analytics'
+import { IssuedVouchers } from '../components/IssuedVouchers'
 
 const companyOptions = [
     { name: 'Sportsmans Warehouse', address: '7v4szbR5y887oFLruu6TGFV7qCigAk1KXcs6gaSMjGof' },
-    { name: 'Totalsports', address: 'TS_SOLANA_WALLET_ADDRESS' },
-    { name: 'Mr Price Sport', address: 'MPS_SOLANA_WALLET_ADDRESS' },
+    { name: 'Totalsports', address: 'FwNz8HeLC36Z8Aiff9a8KEKVrqrzF9n22b8uAZBaZHZb' },
+    { name: 'Mr Price Sport', address: 'FwNz8HeLC36Z8Aiff9a8KEKVrqrzF9n22b8uAZBaZHZb' },
     { name: 'Custom', address: '' }
 ]
 
@@ -43,7 +45,8 @@ export default function ManufacturerDashboard() {
     const [refreshTrigger, setRefreshTrigger] = useState(0)
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
-    const [activeSection, setActiveSection] = useState<'mint' | 'transfer' | 'history' | null>(null)
+    const [activeSection, setActiveSection] = useState<'mint' | 'transfer' | 'manage' | null>(null)
+    const [activeManageSubsection, setActiveManageSubsection] = useState<'transactions' | 'transfers' | 'reclaim' | null>(null)
     const [vouchers, setVouchers] = useState<VoucherData[]>([])
     const [fetchingVouchers, setFetchingVouchers] = useState(false)
     const contentRef = useRef<HTMLDivElement>(null)
@@ -51,6 +54,7 @@ export default function ManufacturerDashboard() {
     const [successMessage, setSuccessMessage] = useState('');
     const { country, exchangeRate } = useCountry()
     const [isImageUploading, setIsImageUploading] = useState(false)
+    const [companies, setCompanies] = useState([]);
 
     useEffect(() => {
         if (connected && publicKey) {
@@ -74,21 +78,29 @@ export default function ManufacturerDashboard() {
         }
     }
 
+    useEffect(() => {
+        const loadCompanies = async () => {
+            try {
+                const loadedCompanies = await fetchCompanies();
+                setCompanies(loadedCompanies);
+            } catch (error) {
+                console.error('Failed to load companies:', error);
+                setErrorMessage('Failed to load companies');
+            }
+        };
+        loadCompanies();
+    }, []);
+
     const handleCompanyChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-        const company = companyOptions.find(c => c.name === event.target.value)
+        const company = companies.find(c => c.name === event.target.value);
         if (company) {
-            setSelectedCompany(company.name)
+            setSelectedCompany(company.name);
+            setTargetCompany(company.address);
         } else {
-            setErrorMessage("Selected company not found")
-            setShowErrorPopup(true)
+            setSelectedCompany('Custom');
+            setTargetCompany('');
         }
-        if (company) {
-            setTargetCompany(company.address)
-        } else {
-            setErrorMessage("Selected company not found")
-            setShowErrorPopup(true)
-        }
-    }
+    };
 
     const handleRefresh = () => {
         setRefreshTrigger(prev => prev + 1)
@@ -131,7 +143,6 @@ export default function ManufacturerDashboard() {
             resetForm();
             handleRefresh();
 
-            // Hide the success banner after 3 seconds
             setTimeout(() => {
                 setShowSuccessBanner(false);
             }, 3000);
@@ -146,6 +157,7 @@ export default function ManufacturerDashboard() {
 
     const closeActiveSection = () => {
         setActiveSection(null)
+        setActiveManageSubsection(null)
         window.scrollTo({ top: 0, behavior: 'smooth' })
     }
 
@@ -170,12 +182,6 @@ export default function ManufacturerDashboard() {
 
         if (symbol.length >= 10) {
             setErrorMessage("Company name must be 10 characters or less")
-            setShowErrorPopup(true)
-            return false
-        }
-
-        if (expirationDate < new Date()) {
-            setErrorMessage("Expiration date must be in the future")
             setShowErrorPopup(true)
             return false
         }
@@ -346,11 +352,12 @@ export default function ManufacturerDashboard() {
                 } as MintVoucherArgs,
             } as InitEscrowAndMintVoucherInstructionArgs
 
-            const ix = createInitEscrowAndMintVoucherInstruction(
-                accounts,
-                args,
-                new web3.PublicKey('gidsaNxwQbr6pyLDaqVn4pPwAypkjwFNZQvvKBJ1Rbi')
-            )
+            const ix =
+                createInitEscrowAndMintVoucherInstruction(
+                    accounts,
+                    args,
+                    new web3.PublicKey('gidsaNxwQbr6pyLDaqVn4pPwAypkjwFNZQvvKBJ1Rbi')
+                )
 
             const transaction = new web3.Transaction().add(ix)
 
@@ -405,28 +412,38 @@ export default function ManufacturerDashboard() {
         }
     }
 
-    const toggleSection = (section: 'mint' | 'transfer' | 'history') => {
+    const toggleSection = (section: 'mint' | 'transfer' | 'manage') => {
         if (activeSection === section) {
             setActiveSection(null)
+            setActiveManageSubsection(null)
             window.scrollTo({ top: 0, behavior: 'smooth' })
         } else {
             setActiveSection(section)
+            setActiveManageSubsection(null)
             setTimeout(() => {
                 contentRef.current?.scrollIntoView({ behavior: 'smooth' })
             }, 100)
         }
     }
 
+    const toggleManageSubsection = (subsection: 'transactions' | 'transfers' | 'reclaim') => {
+        if (activeManageSubsection === subsection) {
+            setActiveManageSubsection(null)
+        } else {
+            setActiveManageSubsection(subsection)
+        }
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-b from-background to-secondary/10">
-            <main className="container mx-auto px-4 py-12">
+            <main className="container px-4 py-12 mx-auto">
                 <motion.div
-                    className="text-center mb-12"
+                    className="mb-12 text-center"
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
                 >
-                    <h1 className="text-4xl font-bold mb-2 text-primary">Ready to Elevate Your Brand?</h1>
+                    <h1 className="mb-2 text-4xl font-bold text-primary">Ready to Elevate Your Brand?</h1>
                     <p className="text-xl text-muted-foreground">Create, Transfer and Manage your vouchers</p>
                 </motion.div>
 
@@ -438,36 +455,36 @@ export default function ManufacturerDashboard() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -20 }}
                             transition={{ duration: 0.5 }}
-                            className="bg-card text-card-foreground p-8 rounded-lg shadow-lg text-center"
+                            className="p-8 text-center rounded-lg shadow-lg bg-card text-card-foreground"
                         >
                             <Gift size={48} className="mx-auto mb-4 text-primary" />
-                            <p className="text-xl mb-4">Please connect your wallet to access the dashboard.</p>
+                            <p className="mb-4 text-xl">Please connect your wallet to access the dashboard.</p>
                             <p className="text-muted-foreground">Once connected, you'll be able to mint and manage your vouchers.</p>
                         </motion.div>
                     ) : (
                         <>
                             <motion.div
-                                className="bg-card text-card-foreground p-6 rounded-lg shadow-lg mb-12"
+                                className="p-6 mb-12 rounded-lg shadow-lg bg-card text-card-foreground"
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.5, delay: 0.2 }}
                             >
-                                <h2 className="text-2xl font-semibold mb-4 text-primary text-center">How It Works</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <h2 className="mb-4 text-2xl font-semibold text-center text-primary">How It Works</h2>
+                                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                                     <div className="flex flex-col items-center text-center">
                                         <Coins className="w-12 h-12 mb-2 text-accent" />
-                                        <h3 className="text-lg font-semibold mb-2">1. Mint Vouchers</h3>
+                                        <h3 className="mb-2 text-lg font-semibold">1. Mint Vouchers</h3>
                                         <p className="text-sm text-muted-foreground">Create new vouchers and assign them to specific target companies. These vouchers will only be valid at the designated outlets.</p>
                                     </div>
                                     <div className="flex flex-col items-center text-center">
                                         <UserCheck className="w-12 h-12 mb-2 text-accent" />
-                                        <h3 className="text-lg font-semibold mb-2">2. Transfer to Influencers</h3>
+                                        <h3 className="mb-2 text-lg font-semibold">2. Transfer to Influencers</h3>
                                         <p className="text-sm text-muted-foreground">Send minted vouchers to influencers using their wallet addresses. It's that simple!</p>
                                     </div>
                                     <div className="flex flex-col items-center text-center">
                                         <Clock className="w-12 h-12 mb-2 text-accent" />
-                                        <h3 className="text-lg font-semibold mb-2">3. Monitor Transactions</h3>
-                                        <p className="text-sm text-muted-foreground">Track all voucher transactions and exchanges on our platform. If a voucher expires, funds are automatically reclaimed to your account.</p>
+                                        <h3 className="mb-2 text-lg font-semibold">3. Monitor & Manage</h3>
+                                        <p className="text-sm text-muted-foreground">Track all voucher transactions and exchanges on our platform. If a voucher expires, reclaim the funds to your account.</p>
                                     </div>
                                 </div>
                             </motion.div>
@@ -478,29 +495,29 @@ export default function ManufacturerDashboard() {
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.5, delay: 0.4 }}
                             >
-                                {['mint', 'transfer', 'history'].map((section) => (
+                                {['mint', 'transfer', 'manage'].map((section) => (
                                     <motion.button
                                         key={section}
                                         className={`p-6 rounded-lg shadow-md transition-all duration-300 flex flex-col items-center justify-between ${activeSection === section
                                             ? 'bg-accent text-accent-foreground col-span-3'
                                             : 'bg-primary text-primary-foreground hover:bg-primary/90'
                                             } ${activeSection && activeSection !== section ? 'hidden' : ''}`}
-                                        onClick={() => toggleSection(section as 'mint' | 'transfer' | 'history')}
+                                        onClick={() => toggleSection(section as 'mint' | 'transfer' | 'manage')}
                                         whileHover={{ scale: activeSection === section ? 1 : 1.05 }}
                                         whileTap={{ scale: 0.95 }}
                                     >
                                         {section === 'mint' && <CreditCard className="w-16 h-16 mb-4" />}
                                         {section === 'transfer' && <Send className="w-16 h-16 mb-4" />}
-                                        {section === 'history' && <History className="w-16 h-16 mb-4" />}
+                                        {section === 'manage' && <Settings className="w-16 h-16 mb-4" />}
                                         <span className="text-xl font-semibold">
                                             {section === 'mint' && 'Mint New Vouchers'}
                                             {section === 'transfer' && 'Transfer to Influencers'}
-                                            {section === 'history' && 'Transaction History'}
+                                            {section === 'manage' && 'Manage Vouchers'}
                                         </span>
                                         <p className="mt-2 text-sm text-center">
                                             {section === 'mint' && 'Create and issue new vouchers for your products or services.'}
                                             {section === 'transfer' && 'Distribute vouchers to your network of influencers.'}
-                                            {section === 'history' && 'View and manage your past voucher transactions.'}
+                                            {section === 'manage' && 'View transactions, transfer history, and reclaim expired vouchers.'}
                                         </p>
                                         {activeSection === section ? (
                                             <ChevronDown className="w-6 h-6 mt-4" />
@@ -520,46 +537,46 @@ export default function ManufacturerDashboard() {
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: -20 }}
                                         transition={{ duration: 0.5 }}
-                                        className="bg-card text-card-foreground p-6 rounded-lg shadow-lg w-full relative mb-4"
+                                        className="relative w-full p-6 mb-4 rounded-lg shadow-lg bg-card text-card-foreground"
                                     >
                                         {activeSection === 'mint' && (
                                             <>
-                                                <h2 className="text-2xl font-semibold mb-4 text-primary text-center">Mint New Voucher</h2>
-                                                <div className="max-w-2xl mx-auto border-2 border-blue-500 rounded-lg p-6">
+                                                <h2 className="mb-4 text-2xl font-semibold text-center text-primary">Mint New Voucher</h2>
+                                                <div className="max-w-2xl p-6 mx-auto border-2 border-blue-500 rounded-lg">
                                                     <form className="space-y-4">
                                                         <div>
-                                                            <label htmlFor="itemName" className="block text-sm font-medium text-foreground mb-1">
+                                                            <label htmlFor="itemName" className="block mb-1 text-sm font-medium text-foreground">
                                                                 Item Name
                                                             </label>
                                                             <input
                                                                 id="itemName"
                                                                 type="text"
-                                                                className="w-full p-2 border border-input bg-background text-foreground rounded-md focus:ring-ring focus:border-ring"
+                                                                className="w-full p-2 border rounded-md border-input bg-background text-foreground focus:ring-ring focus:border-ring"
                                                                 placeholder="Enter item name"
                                                                 value={itemName}
                                                                 onChange={(e) => setItemName(e.target.value)}
                                                             />
                                                         </div>
                                                         <div>
-                                                            <label htmlFor="company" className="block text-sm font-medium text-foreground mb-1">
+                                                            <label htmlFor="company" className="block mb-1 text-sm font-medium text-foreground">
                                                                 Company
                                                             </label>
                                                             <input
                                                                 id="company"
                                                                 type="text"
-                                                                className="w-full p-2 border border-input bg-background text-foreground rounded-md focus:ring-ring focus:border-ring"
+                                                                className="w-full p-2 border rounded-md border-input bg-background text-foreground focus:ring-ring focus:border-ring"
                                                                 placeholder="Enter company name"
                                                                 value={symbol}
                                                                 onChange={(e) => setSymbol(e.target.value)}
                                                             />
                                                         </div>
                                                         <div>
-                                                            <label htmlFor="description" className="block text-sm font-medium text-foreground mb-1">
+                                                            <label htmlFor="description" className="block mb-1 text-sm font-medium text-foreground">
                                                                 Description
                                                             </label>
                                                             <textarea
                                                                 id="description"
-                                                                className="w-full p-2 border border-input bg-background text-foreground rounded-md focus:ring-ring focus:border-ring"
+                                                                className="w-full p-2 border rounded-md border-input bg-background text-foreground focus:ring-ring focus:border-ring"
                                                                 placeholder="Enter voucher description"
                                                                 rows={4}
                                                                 value={description}
@@ -567,26 +584,30 @@ export default function ManufacturerDashboard() {
                                                             />
                                                         </div>
                                                         <div>
-                                                            <label htmlFor="expirationDate" className="block text-sm font-medium text-foreground mb-1">
+                                                            <label htmlFor="expirationDate" className="block mb-1 text-sm font-medium text-foreground">
                                                                 Expiration Date
                                                             </label>
                                                             <input
                                                                 id="expirationDate"
                                                                 type="date"
-                                                                className="w-full p-2 border border-input bg-background text-foreground rounded-md focus:ring-ring focus:border-ring"
+                                                                className="w-full p-2 border rounded-md border-input bg-background text-foreground focus:ring-ring focus:border-ring"
                                                                 value={expirationDate ? expirationDate.toISOString().split('T')[0] : ''}
                                                                 onChange={(e) => setExpirationDate(new Date(e.target.value))}
-                                                                min={new Date().toISOString().split('T')[0]}
                                                             />
+                                                            {expirationDate && expirationDate < new Date() && (
+                                                                <p className="mt-1 text-sm text-yellow-500">
+                                                                    Warning: This voucher will be created as expired.
+                                                                </p>
+                                                            )}
                                                         </div>
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                                             <div>
-                                                                <label htmlFor="companySelect" className="block text-sm font-medium text-foreground mb-1">
+                                                                <label htmlFor="companySelect" className="block mb-1 text-sm font-medium text-foreground">
                                                                     Select Company
                                                                 </label>
                                                                 <select
                                                                     id="companySelect"
-                                                                    className="w-full p-2 border border-input bg-background text-foreground rounded-md focus:ring-ring focus:border-ring"
+                                                                    className="w-full p-2 border rounded-md border-input bg-background text-foreground focus:ring-ring focus:border-ring"
                                                                     value={selectedCompany}
                                                                     onChange={handleCompanyChange}
                                                                 >
@@ -599,13 +620,13 @@ export default function ManufacturerDashboard() {
                                                                 </select>
                                                             </div>
                                                             <div>
-                                                                <label htmlFor="companyWallet" className="block text-sm font-medium text-foreground mb-1">
+                                                                <label htmlFor="companyWallet" className="block mb-1 text-sm font-medium text-foreground">
                                                                     Company Wallet Address
                                                                 </label>
                                                                 <input
                                                                     id="companyWallet"
                                                                     type="text"
-                                                                    className="w-full p-2 border border-input bg-background text-foreground rounded-md focus:ring-ring focus:border-ring"
+                                                                    className="w-full p-2 border rounded-md border-input bg-background text-foreground focus:ring-ring focus:border-ring"
                                                                     placeholder="Enter wallet address"
                                                                     value={targetCompany}
                                                                     onChange={handleWalletAddressChange}
@@ -613,8 +634,8 @@ export default function ManufacturerDashboard() {
                                                                 />
                                                             </div>
                                                         </div>
-                                                        <div className="bg-secondary/20 p-4 rounded-lg">
-                                                            <label htmlFor="currencyAmount" className="block text-sm font-medium text-foreground mb-1">
+                                                        <div className="p-4 rounded-lg bg-secondary/20">
+                                                            <label htmlFor="currencyAmount" className="block mb-1 text-sm font-medium text-foreground">
                                                                 Amount in {country.currencySymbol}
                                                             </label>
                                                             <div className="flex items-center space-x-2">
@@ -622,7 +643,7 @@ export default function ManufacturerDashboard() {
                                                                 <input
                                                                     id="currencyAmount"
                                                                     type="number"
-                                                                    className="w-full p-2 border border-input bg-background text-foreground rounded-md focus:ring-ring focus:border-ring"
+                                                                    className="w-full p-2 border rounded-md border-input bg-background text-foreground focus:ring-ring focus:border-ring"
                                                                     placeholder="Enter amount"
                                                                     value={currencyAmount}
                                                                     onChange={(e) => {
@@ -631,7 +652,7 @@ export default function ManufacturerDashboard() {
                                                                     }}
                                                                 />
                                                             </div>
-                                                            <p className="text-sm text-muted-foreground mt-2">
+                                                            <p className="mt-2 text-sm text-muted-foreground">
                                                                 SOL Equivalent: {solEquivalent} @ {country.currencySymbol}{exchangeRate.toFixed(2)}/SOL
                                                             </p>
                                                         </div>
@@ -645,7 +666,7 @@ export default function ManufacturerDashboard() {
                                                             />
                                                             <label
                                                                 htmlFor="image-upload"
-                                                                className="cursor-pointer bg-primary text-primary-foreground py-2 px-4 rounded-md hover:bg-primary/90 transition duration-300 flex items-center"
+                                                                className="flex items-center px-4 py-2 transition duration-300 rounded-md cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
                                                             >
                                                                 {isImageUploading ? (
                                                                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
@@ -660,14 +681,14 @@ export default function ManufacturerDashboard() {
                                                                     <img
                                                                         src={URL.createObjectURL(voucherImage)}
                                                                         alt="Voucher Preview"
-                                                                        className="mt-2 max-w-full h-auto max-h-48 mx-auto rounded-lg shadow-md"
+                                                                        className="h-auto max-w-full mx-auto mt-2 rounded-lg shadow-md max-h-48"
                                                                     />
                                                                 </div>
                                                             )}
                                                         </div>
                                                         <button
                                                             type="button"
-                                                            className="w-full bg-primary text-primary-foreground py-2 px-4 rounded-md hover:bg-primary/90 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            className="w-full px-4 py-2 transition duration-300 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                                                             onClick={handleMintVoucher}
                                                             disabled={loading || isImageUploading}
                                                         >
@@ -680,9 +701,9 @@ export default function ManufacturerDashboard() {
 
                                         {activeSection === 'transfer' && (
                                             <>
-                                                <h2 className="text-2xl font-semibold mb-4 text-primary text-center">Transfer Vouchers to Influencers</h2>
+                                                <h2 className="mb-4 text-2xl font-semibold text-center text-primary">Transfer Vouchers to Influencers</h2>
                                                 {fetchingVouchers ? (
-                                                    <div className="flex justify-center items-center h-64">
+                                                    <div className="flex items-center justify-center h-64">
                                                         <Loader2 className="w-12 h-12 animate-spin text-primary" />
                                                     </div>
                                                 ) : (
@@ -702,10 +723,63 @@ export default function ManufacturerDashboard() {
                                             </>
                                         )}
 
-                                        {activeSection === 'history' && (
+                                        {activeSection === 'manage' && (
                                             <>
-                                                <h2 className="text-2xl font-semibold mb-4 text-primary text-center">Transaction History</h2>
-                                                <RecentTransactions />
+                                                <h2 className="mb-4 text-2xl font-semibold text-center text-primary">Manage Vouchers</h2>
+                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                                    <button
+                                                        onClick={() => toggleManageSubsection('transactions')}
+                                                        className={`p-4 transition-colors rounded-lg flex items-center justify-center ${activeManageSubsection === 'transactions' ? 'bg-accent text-accent-foreground' : 'bg-secondary hover:bg-secondary/80'}`}
+                                                    >
+                                                        <History className="w-6 h-6 mr-2" />
+                                                        Transaction History
+                                                    </button>
+                                                    <button
+                                                        onClick={() => toggleManageSubsection('transfers')}
+                                                        className={`p-4 transition-colors rounded-lg flex items-center justify-center ${activeManageSubsection === 'transfers' ? 'bg-accent text-accent-foreground' : 'bg-secondary hover:bg-secondary/80'}`}
+                                                    >
+                                                        <Send className="w-6 h-6 mr-2" />
+                                                        Transfer History
+                                                    </button>
+                                                    <button
+                                                        onClick={() => toggleManageSubsection('reclaim')}
+                                                        className={`p-4 transition-colors rounded-lg flex items-center justify-center ${activeManageSubsection === 'reclaim' ? 'bg-accent text-accent-foreground' : 'bg-secondary hover:bg-secondary/80'}`}
+                                                    >
+                                                        <BadgeX className="w-6 h-6 mr-2" />
+                                                        Voucher Reclaim
+                                                    </button>
+                                                </div>
+                                                <AnimatePresence mode="wait">
+                                                    {activeManageSubsection && (
+                                                        <motion.div
+                                                            key={activeManageSubsection}
+                                                            initial={{ opacity: 0, y: 20 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, y: -20 }}
+                                                            transition={{ duration: 0.3 }}
+                                                            className="mt-6"
+                                                        >
+                                                            {activeManageSubsection === 'transactions' && (
+                                                                <div>
+                                                                    <h3 className="mb-4 text-xl font-semibold"></h3>
+                                                                    <RecentTransactions />
+                                                                </div>
+                                                            )}
+                                                            {activeManageSubsection === 'transfers' && (
+                                                                <div>
+                                                                    <h3 className="mb-4 text-xl font-semibold"></h3>
+                                                                    <TransferHistory />
+                                                                </div>
+                                                            )}
+                                                            {activeManageSubsection === 'reclaim' && (
+                                                                <div>
+                                                                    <h3 className="mb-4 text-xl font-semibold"></h3>
+                                                                    <IssuedVouchers />
+                                                                </div>
+                                                            )}
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
                                             </>
                                         )}
                                     </motion.div>
@@ -715,7 +789,7 @@ export default function ManufacturerDashboard() {
                             {activeSection && (
                                 <motion.button
                                     onClick={closeActiveSection}
-                                    className="w-full max-w-md mx-auto bg-yellow-400 text-white py-2 px-4 rounded-md hover:bg-yellow-500 transition duration-300 flex items-center justify-center mt-4"
+                                    className="flex items-center justify-center w-full max-w-md px-4 py-2 mx-auto mt-4 text-white transition duration-300 bg-yellow-400 rounded-md hover:bg-yellow-500"
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: 20 }}
@@ -732,15 +806,15 @@ export default function ManufacturerDashboard() {
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
                                         exit={{ opacity: 0 }}
-                                        className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50"
+                                        className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
                                     >
                                         <motion.div
                                             initial={{ scale: 0.9, opacity: 0 }}
                                             animate={{ scale: 1, opacity: 1 }}
                                             exit={{ scale: 0.9, opacity: 0 }}
-                                            className="bg-card p-6 rounded-lg shadow-xl"
+                                            className="p-6 rounded-lg shadow-xl bg-card"
                                         >
-                                            <h2 className="text-2xl font-bold mb-4 text-primary">Processing Voucher</h2>
+                                            <h2 className="mb-4 text-2xl font-bold text-primary">Processing Voucher</h2>
                                             <p className="mb-4 text-muted-foreground">Please wait while we mint your voucher...</p>
                                             <div className="flex justify-center">
                                                 <Loader2 className="w-12 h-12 animate-spin text-primary" />
@@ -754,21 +828,21 @@ export default function ManufacturerDashboard() {
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
                                         exit={{ opacity: 0 }}
-                                        className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50"
+                                        className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
                                     >
                                         <motion.div
                                             initial={{ scale: 0.9, opacity: 0 }}
                                             animate={{ scale: 1, opacity: 1 }}
                                             exit={{ scale: 0.9, opacity: 0 }}
-                                            className="bg-card p-6 rounded-lg shadow-xl"
+                                            className="p-6 rounded-lg shadow-xl bg-card"
                                         >
                                             <div className="flex items-center mb-4">
-                                                <AlertCircle className="w-8 h-8 text-destructive mr-2" />
+                                                <AlertCircle className="w-8 h-8 mr-2 text-destructive" />
                                                 <h2 className="text-2xl font-bold text-destructive">Error</h2>
                                             </div>
                                             <p className="mb-4 text-muted-foreground">{errorMessage || 'An error occurred'}</p>
                                             <button
-                                                className="w-full bg-destructive text-destructive-foreground py-2 px-4 rounded-md hover:bg-destructive/90 transition duration-300"
+                                                className="w-full px-4 py-2 transition duration-300 rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                                 onClick={() => setShowErrorPopup(false)}
                                             >
                                                 Close
@@ -784,6 +858,17 @@ export default function ManufacturerDashboard() {
                         </>
                     )}
                 </AnimatePresence>
+                {connected && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.6 }}
+                        className="mt-12"
+                    >
+                        <h2 className="mb-6 text-2xl font-semibold text-center text-primary">Voucher Analytics</h2>
+                        <Analytics walletAddress={publicKey.toString()} />
+                    </motion.div>
+                )}
             </main>
         </div>
     )

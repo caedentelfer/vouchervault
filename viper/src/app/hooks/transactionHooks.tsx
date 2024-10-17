@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Connection, PublicKey } from '@solana/web3.js';
-import { CurrencyConverter } from 'utils/CurrencyConverter';
+import { CurrencyConverter } from '../../utils/CurrencyConverter';
 import { TokenUtils } from '../utils/TokenUtils';
 
 const PROGRAM_ID = 'gidsaNxwQbr6pyLDaqVn4pPwAypkjwFNZQvvKBJ1Rbi';

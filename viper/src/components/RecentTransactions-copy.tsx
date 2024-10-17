@@ -42,14 +42,20 @@ const RecentTransactions: React.FC = () => {
         }
     }, [transactions, fetchImagesAndConvertCurrency]);
 
+    // Dynamically fetch companies
     useEffect(() => {
-        fetch('/api/CompanyWalletLoader')
-            .then(response => response.json())
-            .then(data => setCompanies(data))
-            .catch(error => console.error('Error fetching company wallets:', error))
+        fetchCompanies();
+    }, []);
 
-        console.log('COMPANIES:', companies)
-    }, [])
+    const fetchCompanies = async () => {
+        try {
+            const response = await fetch('/api/CompanyWalletLoader');
+            const data = await response.json();
+            setCompanies(data);
+        } catch (error) {
+            console.error('Error fetching company wallets:', error);
+        }
+    };
 
     const getCompanyName = (address: string) => {
         const company = companies.find(company => company.walletAddress === address)

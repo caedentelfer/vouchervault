@@ -42,11 +42,19 @@ export function CountryProvider({ children }: { children: ReactNode }) {
 
     const fetchExchangeRate = async (currency: string) => {
         try {
-            const response = await fetch(`https://api.exchangerate-api.com/v4/latest/USD`)
-            const data = await response.json()
-            const solToUsd = 20 // Assuming 1 SOL = $20 USD, replace with actual rate
-            const usdToLocalCurrency = data.rates[currency]
-            setExchangeRate(solToUsd * usdToLocalCurrency)
+            // Fetch SOL to USD rate
+            const solResponse = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd')
+            const solData = await solResponse.json()
+            const solToUsd = solData.solana.usd
+
+            // Fetch USD to local currency rate
+            const usdResponse = await fetch(`https://api.exchangerate-api.com/v4/latest/USD`)
+            const usdData = await usdResponse.json()
+            const usdToLocalCurrency = usdData.rates[currency]
+
+            // Calculate SOL to local currency rate
+            const solToLocalCurrency = solToUsd * usdToLocalCurrency
+            setExchangeRate(solToLocalCurrency)
         } catch (error) {
             console.error('Failed to fetch exchange rate:', error)
         }

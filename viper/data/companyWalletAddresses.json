@@ -10,7 +10,15 @@
         },
         {
             "name": "Mr Price Sport",
-            "walletAddress": "7v4szbR5y887oFLruu6TGFV7qCigAk1KXcs6gaSMjGof"
+            "walletAddress": "96udt9mYXkifdupgvDznPQSiirFFrqGTH8rHwc4Gp1Wh"
+        },
+        {
+            "name": "Game",
+            "walletAddress": "BWviLhsMakFRzbvwj8Av7tBZuVpU4y8se1DnQMijRhGJ"
+        },
+        {
+            "name": "Makro",
+            "walletAddress": "6CCGRGDHnLw7gvAUUMYZFmMKim33z24VfrmF1swWpTNo"
         }
     ]
 }

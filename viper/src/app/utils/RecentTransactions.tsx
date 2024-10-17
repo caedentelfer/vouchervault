@@ -5,6 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, ChevronUp, Copy, Loader2, ExternalLink } from 'lucide-react'
 import { useTransactions } from '../hooks/transactionHooks'
 import { useCountry } from '../contexts/CountryContext'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 
 const PROGRAM_ID = 'gidsaNxwQbr6pyLDaqVn4pPwAypkjwFNZQvvKBJ1Rbi'
 const FALLBACK_IMAGE_URL = "https://cdn-icons-png.flaticon.com/512/3514/3514447.png"
@@ -13,6 +16,20 @@ interface Company {
     name: string
     walletAddress: string
 }
+
+export const fetchCompanies = async () => {
+    try {
+        const response = await fetch('/api/CompanyWalletLoader'); // Replace with your actual API endpoint
+        if (!response.ok) {
+            throw new Error('Failed to fetch companies');
+        }
+        const data = await response.json();
+        return data; // Assuming the response is an array of company objects
+    } catch (error) {
+        console.error('Error fetching companies:', error);
+        throw error;
+    }
+};
 
 export const RecentTransactions: React.FC = () => {
     const {
@@ -30,6 +47,7 @@ export const RecentTransactions: React.FC = () => {
     const [companies, setCompanies] = useState<Company[]>([])
     const [pageNumber, setPageNumber] = useState(1)
     const [convertedValues, setConvertedValues] = useState<{ [key: string]: number }>({})
+    const [chartData, setChartData] = useState<{ date: string; count: number }[]>([])
 
     useEffect(() => {
         fetchTransactions(1)
@@ -82,6 +100,41 @@ export const RecentTransactions: React.FC = () => {
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text)
     }
+
+    useEffect(() => {
+        if (transactions.length > 0) {
+          const redeemedVouchers = transactions.filter(tx => !tx.isCreateVoucher);
+      
+          const vouchersByDate = redeemedVouchers.reduce((acc, tx) => {
+            const date = new Date(tx.timestamp).toISOString().split('T')[0];
+            acc[date] = (acc[date] || 0) + 1;
+            return acc;
+          }, {} as { [key: string]: number });
+      
+          // Get all dates from the transactions
+          const allDates = redeemedVouchers.map(tx => new Date(tx.timestamp));
+          
+          // Find the oldest and newest date
+          const oldestDate = new Date(Math.min(...allDates.map(date => date.getTime())));
+          const newestDate = new Date(Math.max(...allDates.map(date => date.getTime())));
+      
+          // Create a date range between the oldest and newest dates
+          const dateRange = [];
+          for (let d = new Date(oldestDate); d <= newestDate; d.setDate(d.getDate() + 1)) {
+            const dateStr = d.toISOString().split('T')[0];
+            dateRange.push(dateStr);
+          }
+      
+          // Fill in missing dates with 0
+          const completeData = dateRange.map(date => ({
+            date,
+            count: vouchersByDate[date] || 0,
+          }));
+      
+          setChartData(completeData);
+        }
+      }, [transactions]);
+      
 
     if (loading) {
         return (
@@ -225,7 +278,7 @@ export const RecentTransactions: React.FC = () => {
                                                 <Copy size={16} />
                                             </button>
                                         </div>
-                                        {getCompanyName(tx.performer) !== 'Unknown' && (
+                                        {!tx.isCreateVoucher && getCompanyName(tx.performer) !== 'Unknown' && (
                                             <p className="text-gray-600"><span className="font-semibold text-blue-600">Company:</span><br />{getCompanyName(tx.performer)}</p>
                                         )}
                                         <a
@@ -277,6 +330,43 @@ export const RecentTransactions: React.FC = () => {
                     </motion.button>
                 )}
             </div>
+            <Card className="mt-8">
+            <CardHeader className="justify-center text-center">
+                <CardTitle>Vouchers Redeemed Over Time</CardTitle>
+                <CardDescription>Number of vouchers redeemed per day</CardDescription>
+            </CardHeader>
+            <CardContent className="flex justify-center items-center h-[300px]">
+                <ChartContainer
+                config={{
+                    redeemed: {
+                    label: "Redeemed Vouchers",
+                    color: "hsl(var(--chart-1))",
+                    },
+                }}
+                className="h-full"
+                >
+                <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                    data={chartData}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Legend />
+                    <Line
+                        type="monotone"
+                        dataKey="count"
+                        stroke="hsl(var(--primary))"
+                        name="Redeemed Vouchers"
+                    />
+                    </LineChart>
+                </ResponsiveContainer>
+                </ChartContainer>
+            </CardContent>
+            </Card>
+
         </motion.div>
     )
 }

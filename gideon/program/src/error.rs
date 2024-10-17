@@ -26,6 +26,14 @@ pub enum GideonError {
     /// Voucher expired
     #[error("Voucher Expired")]
     VoucherExpired,
+
+    /// Invalid Issuer
+    #[error("Invalid Issuer")]
+    InvalidIssuer,
+
+    /// Voucher not expired
+    #[error("Voucher Not Expired")]
+    VoucherNotExpired,
 }
 
 impl From<GideonError> for ProgramError {

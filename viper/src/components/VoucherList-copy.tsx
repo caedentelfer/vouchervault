@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Paper, List, ListItem, ListItemIcon, ListItemText, Typography, IconButton, Button, Dialog, DialogTitle, DialogContent, TextField, DialogActions, CircularProgress } from '@mui/material';
 import { ExpandMore, ExpandLess } from '@mui/icons-material';
-import { CurrencyConverter } from 'utils/CurrencyConverter';
+import { CurrencyConverter } from '../utils/CurrencyConverter';
 import {
     WalletNotConnectedError,
     SignerWalletAdapterProps

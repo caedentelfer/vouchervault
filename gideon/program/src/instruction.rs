@@ -31,4 +31,10 @@ pub enum GideonInstruction {
     #[account(6, name = "clock_program", desc = "The clock program account")]
     #[account(7, name = "system_program", desc = "The system program account")]
     ReleaseEscrowAndBurnVoucher,
+
+    #[account(0, writable, signer, name = "payer", desc = "The account to pay for the release")]
+    #[account(1, writable, name = "escrow_account", desc = "The escrow account")]
+    #[account(2, name = "mint_account", desc = "The mint account")]
+    #[account(3, name = "clock_program", desc = "The clock program account")]
+    ReleaseExpiredEscrow,
 }
