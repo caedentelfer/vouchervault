@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -57,19 +57,19 @@ export default function Component(props: VoucherListProps = {
 
     const loadInfluencerData = async () => {
         try {
-          const response = await fetch('/api/InfluencerLoader');
-          const data = await response.json();
-          setInfluencers(data);
-          console.log('Influencer data:', influencers);
-          hasFetchedInfluencers.current = true;
+            const response = await fetch('/api/InfluencerLoader');
+            const data = await response.json();
+            setInfluencers(data);
+            console.log('Influencer data:', influencers);
+            hasFetchedInfluencers.current = true;
         } catch (error) {
-          console.error('Error loading influencer data:', error);
+            console.error('Error loading influencer data:', error);
         }
     };
 
     useEffect(() => {
         if (!hasFetchedInfluencers.current) {
-          loadInfluencerData();
+            loadInfluencerData();
         }
     }, []);
 
@@ -233,6 +233,10 @@ export default function Component(props: VoucherListProps = {
         return amount.toFixed(2)
     }
 
+    const isVoucherExpired = (expiry: number) => {
+        return expiry > 0 && new Date(expiry) < new Date()
+    }
+
     if (vouchers.length === 0) {
         if (userType === 'payer') {
             return (
@@ -282,128 +286,136 @@ export default function Component(props: VoucherListProps = {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
         >
-            {vouchers.map((voucher, index) => (
-                <motion.div
-                    key={voucher.mintAddress}
-                    className="bg-card text-card-foreground p-4 sm:p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 cursor-pointer"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: index * 0.1 }}
-                    onClick={() => handleClick(voucher.mintAddress)}
-                >
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center space-x-4">
-                            <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-lg flex-shrink-0 overflow-hidden">
-                                <img
-                                    ref={el => { imageRefs.current[voucher.mintAddress] = el }}
-                                    src={preloadedImages[voucher.mintAddress] || FALLBACK_IMAGE_URL}
-                                    alt={voucher.name}
-                                    className="w-full h-full object-cover"
-                                    style={{
-                                        objectFit: 'cover',
-                                        objectPosition: 'center',
-                                    }}
-                                />
-                            </div>
-                            <div>
-                                <h3 className="text-lg sm:text-2xl font-semibold text-black">{voucher.name}</h3>
-                                <p className="text-xs sm:text-sm text-muted-foreground">{voucher.symbol}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center justify-between sm:justify-end sm:space-x-4 mt-2 sm:mt-0">
-                            <span className="text-base sm:text-lg font-medium text-black">
-                                {country.currencySymbol}{convertSolToLocalCurrency(voucher.escrow)}
-                                <span className="text-sm text-muted-foreground ml-2">({voucher.escrow} SOL)</span>
-                            </span>
-                            <motion.div
-                                className="text-primary"
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.9 }}
-                            >
-                                {expandedVoucherId === voucher.mintAddress ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
-                            </motion.div>
-                        </div>
-                    </div>
-                    <AnimatePresence>
-                        {expandedVoucherId === voucher.mintAddress && (
-                            <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: 'auto' }}
-                                exit={{ opacity: 0, height: 0 }}
-                                transition={{ duration: 0.3 }}
-                                className="mt-4 space-y-4 overflow-hidden bg-gray-50 p-4 rounded-lg"
-                            >
-                                <div className="flex flex-col sm:flex-row">
-                                    <div className="flex-1 space-y-2 pr-4">
-                                        <p className="text-gray-600"><span className="font-semibold text-blue-600">Description:</span><br />{voucher.description}</p>
-                                        <div className="flex items-center">
-                                            <p className="mr-2 text-gray-600"><span className="font-semibold text-blue-600">Escrow Account:</span><br />{voucher.escrowAddress}</p>
-                                            <button onClick={(e) => { e.stopPropagation(); copyToClipboard(voucher.escrowAddress); }} className="text-blue-600 hover:text-blue-800">
-                                                <Copy size={16} />
-                                            </button>
-                                        </div>
-                                        <div className="flex items-center">
-                                            <p className="mr-2 text-gray-600"><span className="font-semibold text-blue-600">Mint Address:</span><br />{voucher.mintAddress}</p>
-                                            <button onClick={(e) => { e.stopPropagation(); copyToClipboard(voucher.mintAddress); }} className="text-blue-600 hover:text-blue-800">
-                                                <Copy size={16} />
-                                            </button>
-                                        </div>
-                                        {voucher.expiry > 0 && (
-                                            <p className="text-gray-600"><span className="font-semibold text-blue-600">Expiry:</span><br />{new Date(voucher.expiry).toLocaleString()}</p>
-                                        )}
-                                        <a
-                                            href={`https://explorer.solana.com/address/${voucher.mintAddress}?cluster=devnet`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-block text-blue-600 hover:text-blue-800 transition duration-300"
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            View on Solana Explorer <ExternalLink size={14} className="inline" />
-                                        </a>
-                                    </div>
-                                    <div className="flex-shrink-0 mt-4 sm:mt-0">
-                                        <div className="relative w-48 h-48 rounded-lg overflow-hidden">
-                                            <img
-                                                ref={el => { imageRefs.current[`${voucher.mintAddress}-large`] = el }}
-                                                src={preloadedImages[voucher.mintAddress] || FALLBACK_IMAGE_URL}
-                                                alt={voucher.name}
-                                                className="w-full h-full object-cover"
-                                                style={{
-                                                    objectFit: 'cover',
-                                                    objectPosition: 'center',
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
+            {vouchers.map((voucher, index) => {
+                const expired = isVoucherExpired(voucher.expiry)
+                return (
+                    <motion.div
+                        key={voucher.mintAddress}
+                        className={`bg-card text-card-foreground p-4 sm:p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 cursor-pointer ${expired ? 'opacity-50' : ''}`}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: index * 0.1 }}
+                        onClick={() => handleClick(voucher.mintAddress)}
+                    >
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-center space-x-4">
+                                <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-lg flex-shrink-0 overflow-hidden">
+                                    <img
+                                        ref={el => { imageRefs.current[voucher.mintAddress] = el }}
+                                        src={preloadedImages[voucher.mintAddress] || FALLBACK_IMAGE_URL}
+                                        alt={voucher.name}
+                                        className="w-full h-full object-cover"
+                                        style={{
+                                            objectFit: 'cover',
+                                            objectPosition: 'center',
+                                        }}
+                                    />
                                 </div>
-                                {userType === 'receiver' && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            onRedeem && onRedeem(voucher)
-                                        }}
-                                        className="w-full bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded-lg text-lg font-semibold transition duration-300"
-                                    >
-                                        Redeem
-                                    </button>
-                                )}
-                                {userType === 'payer' && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleOpenTransferDialog(voucher)
-                                        }}
-                                        className="w-full bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-lg text-lg font-semibold flex items-center justify-center space-x-2 transition duration-300"
-                                    >
-                                        <Send size={20} />
-                                        <span>Transfer</span>
-                                    </button>
-                                )}
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </motion.div>
-            ))}
+                                <div>
+                                    <h3 className="text-lg sm:text-2xl font-semibold text-black">{voucher.name}</h3>
+                                    <p className="text-xs sm:text-sm text-muted-foreground">{voucher.symbol}</p>
+                                    {expired && <p className="text-xs sm:text-sm text-red-500 font-semibold">Expired</p>}
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between sm:justify-end sm:space-x-4 mt-2 sm:mt-0">
+                                <span className="text-base sm:text-lg font-medium text-black">
+                                    {country.currencySymbol}{convertSolToLocalCurrency(voucher.escrow)}
+                                    <span className="text-sm text-muted-foreground ml-2">({voucher.escrow} SOL)</span>
+                                </span>
+                                <motion.div
+                                    className="text-primary"
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                >
+                                    {expandedVoucherId === voucher.mintAddress ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
+                                </motion.div>
+                            </div>
+                        </div>
+                        <AnimatePresence>
+                            {expandedVoucherId === voucher.mintAddress && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="mt-4 space-y-4 overflow-hidden bg-gray-50 p-4 rounded-lg"
+                                >
+                                    <div className="flex flex-col sm:flex-row">
+                                        <div className="flex-1 space-y-2 pr-4">
+                                            <p className="text-gray-600"><span className="font-semibold text-blue-600">Description:</span><br />{voucher.description}</p>
+                                            <div className="flex items-center">
+                                                <p className="mr-2 text-gray-600"><span className="font-semibold text-blue-600">Escrow Account:</span><br />{voucher.escrowAddress}</p>
+                                                <button onClick={(e) => { e.stopPropagation(); copyToClipboard(voucher.escrowAddress); }} className="text-blue-600 hover:text-blue-800">
+                                                    <Copy size={16} />
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center">
+                                                <p className="mr-2 text-gray-600"><span className="font-semibold text-blue-600">Mint Address:</span><br />{voucher.mintAddress}</p>
+                                                <button onClick={(e) => { e.stopPropagation(); copyToClipboard(voucher.mintAddress); }} className="text-blue-600 hover:text-blue-800">
+                                                    <Copy size={16} />
+                                                </button>
+                                            </div>
+
+                                            {voucher.expiry > 0 && (
+                                                <p className="text-gray-600"><span className="font-semibold text-blue-600">Expiry:</span><br />{new Date(voucher.expiry).toLocaleString()}</p>
+                                            )}
+                                            <a
+                                                href={`https://explorer.solana.com/address/${voucher.mintAddress}?cluster=devnet`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-block text-blue-600 hover:text-blue-800 transition duration-300"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                View on Solana Explorer <ExternalLink size={14} className="inline" />
+                                            </a>
+                                        </div>
+                                        <div className="flex-shrink-0 mt-4 sm:mt-0">
+                                            <div className="relative w-48 h-48 rounded-lg overflow-hidden">
+                                                <img
+                                                    ref={el => { imageRefs.current[`${voucher.mintAddress}-large`] = el }}
+                                                    src={preloadedImages[voucher.mintAddress] || FALLBACK_IMAGE_URL}
+                                                    alt={voucher.name}
+                                                    className="w-full h-full object-cover"
+                                                    style={{
+                                                        objectFit: 'cover',
+                                                        objectPosition: 'center',
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {userType === 'receiver' && !expired && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                onRedeem && onRedeem(voucher)
+                                            }}
+                                            className="w-full bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded-lg text-lg font-semibold transition duration-300"
+                                        >
+                                            Redeem
+                                        </button>
+                                    )}
+                                    {userType === 'payer' && !expired && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleOpenTransferDialog(voucher)
+                                            }}
+                                            className="w-full bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-lg text-lg font-semibold flex items-center justify-center space-x-2 transition duration-300"
+                                        >
+                                            <Send size={20} />
+                                            <span>Transfer</span>
+                                        </button>
+                                    )}
+                                    {expired && (
+                                        <p className="text-red-500 font-semibold text-center">This voucher has expired and cannot be redeemed or transferred.</p>
+                                    )}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </motion.div>
+                )
+            })}
             <AnimatePresence>
                 {openDialog && (
                     <motion.div
